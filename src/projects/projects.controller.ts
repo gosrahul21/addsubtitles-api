@@ -1,4 +1,8 @@
-import { Controller, Post, Put, Get, Body, Param, Req, UseGuards, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Put, Get, Body, Param, Req, UseGuards, BadRequestException, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import * as path from 'path';
+import * as fs from 'fs';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto, UpdateSettingsDto } from './dto/project.dto';
 import { Request } from 'express';
@@ -38,14 +42,39 @@ export class ProjectsController {
   }
 
   @Post(':id/upload')
+  @UseInterceptors(
+    FileInterceptor('audioFile', {
+      storage: diskStorage({
+        destination: (req, file, cb) => {
+          const uploadPath = './temp-uploads';
+          if (!fs.existsSync(uploadPath)) {
+            fs.mkdirSync(uploadPath, { recursive: true });
+          }
+          cb(null, uploadPath);
+        },
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `audio-${uniqueSuffix}${path.extname(file.originalname || '.wav')}`);
+        },
+      }),
+    }),
+  )
   async uploadVideo(
     @Param('id') id: string,
-    @Body('videoUrl') videoUrl: string
+    @UploadedFile() file?: any,
+    @Body('videoUrl') videoUrl?: string,
   ) {
-    if (!videoUrl) {
-      throw new BadRequestException('videoUrl is required');
+    if (file) {
+      // If a file was uploaded, we save its absolute path as the 'videoUrl'
+      const absolutePath = path.resolve(file.path);
+      return this.projectsService.saveUploadedVideo(id, absolutePath);
     }
-    return this.projectsService.saveUploadedVideo(id, videoUrl);
+    
+    if (videoUrl) {
+      return this.projectsService.saveUploadedVideo(id, videoUrl);
+    }
+
+    throw new BadRequestException('Either an audioFile or videoUrl is required');
   }
 
   @Put(':id/settings')

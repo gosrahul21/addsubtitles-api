@@ -20,6 +20,8 @@ import { ExportModule } from './export/export.module';
       connection: {
         host: process.env.REDIS_HOST || 'localhost',
         port: parseInt(process.env.REDIS_PORT || '6379', 10),
+        username: process.env.REDIS_USERNAME || undefined,
+        password: process.env.REDIS_PASSWORD || undefined,
       },
     }),
 
@@ -34,4 +36,4 @@ import { ExportModule } from './export/export.module';
     ExportModule,
   ],
 })
-export class AppModule {}
+export class AppModule { }
