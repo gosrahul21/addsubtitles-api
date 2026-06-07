@@ -29,6 +29,7 @@ model User {
   subscriptionTier  SubscriptionTier @default(FREE) @map("subscription_tier")
   createdAt         DateTime         @default(now()) @map("created_at")
   projects          Project[]
+  presets           Preset[]
 
   @@map("users")
 }
@@ -56,9 +57,22 @@ model Subtitle {
   timestampEnd   Float    @map("timestamp_end")   // in seconds
   text           String
   wordsJson      Json?    @map("words_json")      // Store raw per-word timings [{ word, start, end }]
+  speaker        String?                           // Speaker label (e.g. "A", "B")
   project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@map("subtitles")
+}
+
+model Preset {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  name      String
+  styleJson Json     @map("style_json")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("presets")
 }
 
 model Export {

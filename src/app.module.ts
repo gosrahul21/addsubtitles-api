@@ -7,6 +7,8 @@ import { UsersModule } from './users/users.module';
 import { ProjectsModule } from './projects/projects.module';
 import { ProcessingModule } from './processing/processing.module';
 import { ExportModule } from './export/export.module';
+import { PaymentsModule } from './payments/payments.module';
+import { PresetsModule } from './presets/presets.module';
 
 @Module({
   imports: [
@@ -34,6 +36,8 @@ import { ExportModule } from './export/export.module';
     ProjectsModule,
     ProcessingModule,
     ExportModule,
+    PaymentsModule,
+    PresetsModule,
   ],
 })
 export class AppModule { }
