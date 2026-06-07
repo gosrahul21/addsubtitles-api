@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import DodoPayments from 'dodopayments';
-import { SubscriptionTier } from '@prisma/client';
 
 @Injectable()
 export class PaymentsService {
@@ -21,13 +20,13 @@ export class PaymentsService {
     });
   }
 
-  async createCheckoutSession(userId: string, tier: SubscriptionTier) {
+  async createCheckoutSession(userId: string, tier: string) {
     // Placeholder product IDs based on tier. 
     // In production, these should be real product IDs from your Dodo Payments dashboard.
     let productId = 'prod_placeholder';
-    if (tier === SubscriptionTier.PRO) {
+    if (tier === 'PRO') {
       productId = 'prod_pro_placeholder';
-    } else if (tier === SubscriptionTier.ENTERPRISE) {
+    } else if (tier === 'ENTERPRISE') {
       productId = 'prod_enterprise_placeholder';
     }
 
@@ -53,7 +52,7 @@ export class PaymentsService {
       case 'subscription.cancelled':
       case 'subscription.expired':
       case 'subscription.past_due':
-        await this.handleSubscriptionFailed(event.data);
+        await this.handleSubscriptionFailed(event.type, event.data);
         break;
       default:
         this.logger.log(`Unhandled webhook event type: ${event.type}`);
@@ -61,25 +60,95 @@ export class PaymentsService {
   }
 
   private async handlePaymentSucceeded(data: any) {
-    // In a real scenario, you'd extract userId and tier from data.metadata or custom fields
     const userId = data.metadata?.userId;
-    const tier = data.metadata?.tier as SubscriptionTier;
+    const tier = data.metadata?.tier as string;
 
     if (!userId || !tier) {
-      // logging this information in logger file 
-      // with paymentId, date, time, any other identifer to track down the issue.
       this.logger.warn('Payment succeeded but missing metadata for user or tier. Cannot upgrade.');
       return;
     }
-   // updating the payment status in user , but we should store it a subcription table for user
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { subscriptionTier: tier },
-    });
-    this.logger.log(`User ${userId} successfully upgraded to ${tier}`);
+
+    // Default plan seeding attributes based on the tier
+    let price = 19.00;
+    let daysCovered = 30;
+    if (tier === 'ENTERPRISE') {
+      price = 99.00;
+    } else if (tier === 'FREE') {
+      price = 0.00;
+      daysCovered = 99999;
+    }
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        // 1. Find or dynamically seed the SubscriptionPlan
+        let plan = await tx.subscriptionPlan.findFirst({
+          where: { name: tier },
+        });
+
+        if (!plan) {
+          plan = await tx.subscriptionPlan.create({
+            data: {
+              name: tier,
+              price,
+              daysCovered,
+            },
+          });
+        }
+
+        // 2. Upsert Subscription (1-to-1 with User using userId as primary key)
+        const startDate = new Date();
+        const endDate = new Date();
+        endDate.setDate(endDate.getDate() + plan.daysCovered);
+
+        await tx.subscription.upsert({
+          where: { userId },
+          update: {
+            subscriptionPlanId: plan.id,
+            startDate,
+            endDate,
+            status: 'active',
+          },
+          create: {
+            userId,
+            subscriptionPlanId: plan.id,
+            startDate,
+            endDate,
+            status: 'active',
+          },
+        });
+
+        // 3. Create Order
+        const amount = data.amount || data.total_amount || plan.price;
+        const gatewayOrderId = data.payment_id || data.transaction_id || data.id || null;
+        const currency = data.currency || 'USD';
+
+        await tx.order.create({
+          data: {
+            userId,
+            subscriptionPlanId: plan.id,
+            amount,
+            currency,
+            status: 'completed',
+            paymentGateway: 'DODO_PAYMENTS',
+            gatewayOrderId,
+          },
+        });
+
+        // 4. Update the user's tier status field
+        await tx.user.update({
+          where: { id: userId },
+          data: { subscriptionTier: tier },
+        });
+      });
+
+      this.logger.log(`User ${userId} successfully upgraded to tier ${tier} with active subscription & completed order.`);
+    } catch (error) {
+      this.logger.error(`Failed to process payment.succeeded for user ${userId}: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
-  private async handleSubscriptionFailed(data: any) {
+  private async handleSubscriptionFailed(eventType: string, data: any) {
     const userId = data.metadata?.userId;
 
     if (!userId) {
@@ -87,10 +156,33 @@ export class PaymentsService {
       return;
     }
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { subscriptionTier: SubscriptionTier.FREE },
-    });
-    this.logger.log(`User ${userId} downgraded to FREE tier due to subscription event.`);
+    const status = eventType === 'subscription.cancelled' ? 'cancelled' : 'expired';
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        // 1. Update subscription status if exists
+        const subscription = await tx.subscription.findUnique({
+          where: { userId },
+        });
+
+        if (subscription) {
+          await tx.subscription.update({
+            where: { userId },
+            data: { status },
+          });
+        }
+
+        // 2. Reset user subscription tier to FREE
+        await tx.user.update({
+          where: { id: userId },
+          data: { subscriptionTier: 'FREE' },
+        });
+      });
+
+      this.logger.log(`User ${userId} subscription status updated to ${status} and tier reset to FREE.`);
+    } catch (error) {
+      this.logger.error(`Failed to process subscription failure (${eventType}) for user ${userId}: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 }

@@ -35,7 +35,7 @@ async function runTests() {
     await prismaService.user.deleteMany({ where: { email } });
 
     // 2. Create target test user (starts at FREE)
-    let user = await prismaService.user.create({
+    let user: any = await prismaService.user.create({
       data: {
         email,
         subscriptionTier: 'FREE',
@@ -82,12 +82,50 @@ async function runTests() {
     // Process the event
     await paymentsService.handleWebhookEvent(unwrappedEvent);
 
-    // Verify DB update
-    user = await prismaService.user.findUniqueOrThrow({ where: { id: user.id } });
+    // Verify DB update and relational entities
+    user = await prismaService.user.findUniqueOrThrow({
+      where: { id: user.id },
+      include: {
+        subscription: {
+          include: {
+            plan: true,
+          },
+        },
+        orders: {
+          include: {
+            plan: true,
+          },
+        },
+      },
+    });
+
     if (user.subscriptionTier !== 'PRO') {
       throw new Error(`Expected subscription tier to be PRO, got ${user.subscriptionTier}`);
     }
     console.log('✔ Database verification: User upgraded to PRO successfully');
+
+    if (!user.subscription) {
+      throw new Error('Expected active subscription record, but none found');
+    }
+    if (user.subscription.status !== 'active') {
+      throw new Error(`Expected subscription status to be active, got ${user.subscription.status}`);
+    }
+    if (user.subscription.plan.name !== 'PRO') {
+      throw new Error(`Expected subscription plan name to be PRO, got ${user.subscription.plan.name}`);
+    }
+    console.log('✔ Database verification: Relational Subscription record verified successfully');
+
+    if (user.orders.length === 0) {
+      throw new Error('Expected at least one order record, but none found');
+    }
+    const order = user.orders[0];
+    if (order.status !== 'completed') {
+      throw new Error(`Expected order status to be completed, got ${order.status}`);
+    }
+    if (order.plan.name !== 'PRO') {
+      throw new Error(`Expected order plan name to be PRO, got ${order.plan.name}`);
+    }
+    console.log('✔ Database verification: Relational Order record verified successfully');
 
     // 5. Test Webhook Downgrade
     console.log('Testing subscription failure and FREE downgrade...');
@@ -116,11 +154,19 @@ async function runTests() {
     await paymentsService.handleWebhookEvent(unwrappedDowngrade);
 
     // Verify DB update
-    user = await prismaService.user.findUniqueOrThrow({ where: { id: user.id } });
+    user = await prismaService.user.findUniqueOrThrow({
+      where: { id: user.id },
+      include: {
+        subscription: true,
+      },
+    });
     if (user.subscriptionTier !== 'FREE') {
       throw new Error(`Expected subscription tier to be FREE, got ${user.subscriptionTier}`);
     }
-    console.log('✔ Database verification: User downgraded to FREE successfully');
+    if (!user.subscription || user.subscription.status !== 'cancelled') {
+      throw new Error(`Expected subscription status to be cancelled, got ${user.subscription?.status}`);
+    }
+    console.log('✔ Database verification: User downgraded to FREE and subscription status updated to cancelled successfully');
 
     console.log('\n=============================================');
     console.log('🎉 ALL PAYMENT SYSTEM INTEGRATION TESTS PASSED 🎉');

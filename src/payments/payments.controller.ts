@@ -2,8 +2,6 @@ import { Controller, Post, Body, Req, Headers, UnauthorizedException, BadRequest
 import { PaymentsService } from './payments.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Request } from 'express';
-import { SubscriptionTier } from '@prisma/client';
-
 @Controller('payments')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
@@ -12,14 +10,16 @@ export class PaymentsController {
   @Post('checkout-session')
   async createCheckoutSession(
     @Req() req: any,
-    @Body('tier') tier: SubscriptionTier,
+    @Body('tier') tier: string,
   ) {
-    if (!tier || !Object.values(SubscriptionTier).includes(tier)) {
+    const allowedTiers = ['FREE', 'PRO', 'ENTERPRISE'];
+    const normalizedTier = tier?.toUpperCase();
+    if (!normalizedTier || !allowedTiers.includes(normalizedTier)) {
       throw new BadRequestException('Invalid subscription tier');
     }
 
     const userId = req.user.id;
-    const checkoutUrl = await this.paymentsService.createCheckoutSession(userId, tier);
+    const checkoutUrl = await this.paymentsService.createCheckoutSession(userId, normalizedTier);
     return { checkoutUrl };
   }
 

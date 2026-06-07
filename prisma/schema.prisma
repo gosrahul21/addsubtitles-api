@@ -7,12 +7,6 @@ generator client {
   provider = "prisma-client-js"
 }
 
-enum SubscriptionTier {
-  FREE
-  PRO
-  ENTERPRISE
-}
-
 enum ProjectStatus {
   PENDING
   PROCESSING
@@ -26,12 +20,55 @@ model User {
   passwordHash      String?          @map("password_hash") // Nullable for Google OAuth users
   googleId          String?          @unique @map("google_id")
   refreshTokenHash  String?          @map("refresh_token_hash") // Encrypted refresh token for rotation
-  subscriptionTier  SubscriptionTier @default(FREE) @map("subscription_tier")
+  subscriptionTier  String           @default("FREE") @map("subscription_tier")
   createdAt         DateTime         @default(now()) @map("created_at")
   projects          Project[]
   presets           Preset[]
+  subscription      Subscription?
+  orders            Order[]
 
   @@map("users")
+}
+
+model SubscriptionPlan {
+  id           String         @id @default(uuid())
+  name         String         // e.g., "PRO", "ENTERPRISE"
+  price        Float          // e.g., 19.00
+  daysCovered  Int            @map("days_covered") // e.g., 30
+  createdAt    DateTime       @default(now()) @map("created_at")
+  subscriptions Subscription[]
+  orders       Order[]
+
+  @@map("subscription_plans")
+}
+
+model Subscription {
+  userId             String           @id @map("user_id")
+  subscriptionId     String           @default(uuid()) @map("subscription_id")
+  subscriptionPlanId String           @map("subscription_plan_id")
+  startDate          DateTime         @default(now()) @map("start_date")
+  endDate            DateTime         @map("end_date")
+  status             String           // "active", "expired", "cancelled"
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan               SubscriptionPlan @relation(fields: [subscriptionPlanId], references: [id])
+
+  @@map("subscriptions")
+}
+
+model Order {
+  id                 String           @id @default(uuid())
+  userId             String           @map("user_id")
+  subscriptionPlanId String           @map("subscription_plan_id")
+  amount             Float
+  currency           String           @default("USD")
+  status             String           // "completed", "failed", "pending"
+  paymentGateway     String           @default("DODO_PAYMENTS") @map("payment_gateway")
+  gatewayOrderId     String?          @map("gateway_order_id")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan               SubscriptionPlan @relation(fields: [subscriptionPlanId], references: [id])
+
+  @@map("orders")
 }
 
 model Project {
