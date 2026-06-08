@@ -2,8 +2,12 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { RedisService } from '../redis/redis.service';
+import { CACHE_KEYS } from '../common/constants/cache.constants';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import ffmpeg from 'fluent-ffmpeg';
 import { OpenAI } from 'openai';
 import { execSync } from 'child_process';
@@ -30,7 +34,11 @@ interface WordEntry {
 export class ProcessingProcessor extends WorkerHost {
   private openai: OpenAI;
 
-  constructor(private prisma: PrismaService) {
+  constructor(
+    private prisma: PrismaService,
+    private configService: ConfigService,
+    private redisService: RedisService,
+  ) {
     super();
     this.openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY || 'placeholder_openai_key',
@@ -40,10 +48,17 @@ export class ProcessingProcessor extends WorkerHost {
   // Orchestrator method triggered by BullMQ
   async process(job: Job<any, any, string>): Promise<any> {
     const { projectId, videoUrl } = job.data;
-    const workDir = path.resolve(__dirname, `../../temp-work-${projectId}`);
+    const workDir = path.join(os.tmpdir(), `addsubtitles-work-${projectId}`);
     
     try {
       console.log(`[Job ${job.id}] Starting audio transcription pipeline for project: ${projectId}`);
+      
+      await this.prisma.project.update({
+        where: { id: projectId },
+        data: { status: 'PROCESSING' },
+      });
+      await this.redisService.del(CACHE_KEYS.PROJECT_DETAILS(projectId));
+
       if (!fs.existsSync(workDir)) {
         fs.mkdirSync(workDir, { recursive: true });
       }
@@ -75,6 +90,7 @@ export class ProcessingProcessor extends WorkerHost {
         where: { id: projectId },
         data: { status: 'COMPLETED' },
       });
+      await this.redisService.del(CACHE_KEYS.PROJECT_DETAILS(projectId));
 
       console.log(`[Job ${job.id}] Pipeline finished successfully for Project: ${projectId}`);
     } catch (err) {

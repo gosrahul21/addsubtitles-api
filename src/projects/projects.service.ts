@@ -1,10 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto, UpdateSettingsDto } from './dto/project.dto';
+import { RedisService } from '../redis/redis.service';
+import { CACHE_KEYS } from '../common/constants/cache.constants';
 
 @Injectable()
 export class ProjectsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private redisService: RedisService,
+  ) {}
 
   async createProject(dto: CreateProjectDto, userId: string | null) {
     return this.prisma.project.create({
@@ -24,12 +29,15 @@ export class ProjectsService {
 
     // Mock S3 pre-signed link resolving
     // In production, we'd verify metadata or generate S3 signature properties.
-    return this.prisma.project.update({
+    const updated = await this.prisma.project.update({
       where: { id: projectId },
       data: {
         videoUrl,
       },
     });
+
+    await this.redisService.del(CACHE_KEYS.PROJECT_DETAILS(projectId));
+    return updated;
   }
 
   async updateSettings(projectId: string, dto: UpdateSettingsDto) {
@@ -38,7 +46,7 @@ export class ProjectsService {
       throw new NotFoundException('Project not found');
     }
 
-    return this.prisma.project.update({
+    const updated = await this.prisma.project.update({
       where: { id: projectId },
       data: {
         settingsJson: {
@@ -49,9 +57,18 @@ export class ProjectsService {
         },
       },
     });
+
+    await this.redisService.del(CACHE_KEYS.PROJECT_DETAILS(projectId));
+    return updated;
   }
 
   async getProject(projectId: string) {
+    const cacheKey = CACHE_KEYS.PROJECT_DETAILS(projectId);
+    const cached = await this.redisService.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
       include: { subtitles: true },
@@ -59,6 +76,8 @@ export class ProjectsService {
     if (!project) {
       throw new NotFoundException('Project not found');
     }
+
+    await this.redisService.set(cacheKey, JSON.stringify(project), 3600);
     return project;
   }
 }

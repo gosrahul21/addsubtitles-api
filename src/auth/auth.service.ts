@@ -21,8 +21,8 @@ export class AuthService {
     return bcrypt.compare(val, hash);
   }
 
-  private async generateTokens(userId: string, email: string) {
-    const payload = { sub: userId, email };
+  private async generateTokens(userId: string, email: string, role: string) {
+    const payload = { sub: userId, email, role };
     
     const accessToken = await this.jwtService.signAsync(payload, {
       secret: AUTH_CONFIG.jwtAccessSecret,
@@ -72,16 +72,25 @@ export class AuthService {
     });
 
     await this.claimGuestProjects(user.id, dto.sessionId);
-    const tokens = await this.generateTokens(user.id, user.email);
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
 
     return {
-      user: { id: user.id, email: user.email, subscriptionTier: user.subscriptionTier },
+      user: { id: user.id, email: user.email, subscriptionTier: 'FREE' },
       tokens,
     };
   }
 
   async login(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    const user = await (this.prisma as any).user.findUnique({
+      where: { email: dto.email },
+      include: {
+        subscription: {
+          include: {
+            plan: true,
+          },
+        },
+      },
+    });
     if (!user || !user.passwordHash) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -92,10 +101,10 @@ export class AuthService {
     }
 
     await this.claimGuestProjects(user.id, dto.sessionId);
-    const tokens = await this.generateTokens(user.id, user.email);
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
 
     return {
-      user: { id: user.id, email: user.email, subscriptionTier: user.subscriptionTier },
+      user: { id: user.id, email: user.email, subscriptionTier: user.subscription?.plan?.name || 'FREE' },
       tokens,
     };
   }
@@ -125,13 +134,29 @@ export class AuthService {
       throw new UnauthorizedException('Google OAuth verification failed');
     }
 
-    let user = await this.prisma.user.findUnique({
+    let user: any = await (this.prisma as any).user.findUnique({
       where: { googleId },
+      include: {
+        subscription: {
+          include: {
+            plan: true,
+          },
+        },
+      },
     });
 
     if (!user) {
       // If user doesn't exist by googleId, check by their email to link their account
-      user = await this.prisma.user.findUnique({ where: { email } });
+      user = await (this.prisma as any).user.findUnique({
+        where: { email },
+        include: {
+          subscription: {
+            include: {
+              plan: true,
+            },
+          },
+        },
+      });
 
       if (user) {
         user = await this.prisma.user.update({
@@ -149,10 +174,10 @@ export class AuthService {
     }
 
     await this.claimGuestProjects(user.id, dto.sessionId);
-    const tokens = await this.generateTokens(user.id, user.email);
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
 
     return {
-      user: { id: user.id, email: user.email, subscriptionTier: user.subscriptionTier },
+      user: { id: user.id, email: user.email, subscriptionTier: user.subscription?.plan?.name || 'FREE' },
       tokens,
     };
   }
@@ -175,7 +200,7 @@ export class AuthService {
 
       // Rotate tokens
       return {
-        tokens: await this.generateTokens(user.id, user.email),
+        tokens: await this.generateTokens(user.id, user.email, user.role),
       };
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');

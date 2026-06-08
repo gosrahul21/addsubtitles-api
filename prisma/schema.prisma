@@ -14,13 +14,18 @@ enum ProjectStatus {
   FAILED
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 model User {
   id                String           @id @default(uuid())
   email             String           @unique
   passwordHash      String?          @map("password_hash") // Nullable for Google OAuth users
   googleId          String?          @unique @map("google_id")
   refreshTokenHash  String?          @map("refresh_token_hash") // Encrypted refresh token for rotation
-  subscriptionTier  String           @default("FREE") @map("subscription_tier")
+  role              Role             @default(USER)
   createdAt         DateTime         @default(now()) @map("created_at")
   projects          Project[]
   presets           Preset[]
@@ -35,6 +40,8 @@ model SubscriptionPlan {
   name         String         // e.g., "PRO", "ENTERPRISE"
   price        Float          // e.g., 19.00
   daysCovered  Int            @map("days_covered") // e.g., 30
+  benefits     String[]
+  limitations  String[]
   createdAt    DateTime       @default(now()) @map("created_at")
   subscriptions Subscription[]
   orders       Order[]

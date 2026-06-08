@@ -1,10 +1,32 @@
-import { Controller, Post, Body, Req, Headers, UnauthorizedException, BadRequestException, UseGuards, RawBodyRequest } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Req, Headers, UnauthorizedException, BadRequestException, UseGuards, RawBodyRequest, Param } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Request } from 'express';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UpdatePlanDto } from './dto/update-plan.dto';
+import { Role } from '../common/types/roles.enum';
+
 @Controller('payments')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
+
+  @Get('plans')
+  async getPlans() {
+    return this.paymentsService.getPlans();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Roles(Role.ADMIN)
+  @Put('plans/:id')
+  async updatePlan(
+    @Param('id') id: string,
+    @Body() dto: UpdatePlanDto,
+  ) {
+    if (Object.keys(dto).length === 0) {
+      throw new BadRequestException('Provide at least one field to update');
+    }
+    return this.paymentsService.updatePlan(id, dto);
+  }
 
   @UseGuards(JwtAuthGuard)
   @Post('checkout-session')
@@ -12,7 +34,8 @@ export class PaymentsController {
     @Req() req: any,
     @Body('tier') tier: string,
   ) {
-    const allowedTiers = ['FREE', 'PRO', 'ENTERPRISE'];
+    const plans = await this.paymentsService.getPlans();
+    const allowedTiers = plans.map(p => p.name.toUpperCase());
     const normalizedTier = tier?.toUpperCase();
     if (!normalizedTier || !allowedTiers.includes(normalizedTier)) {
       throw new BadRequestException('Invalid subscription tier');

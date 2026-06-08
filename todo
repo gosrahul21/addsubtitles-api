@@ -1,4 +1,4 @@
-audio to text and sending back to UI for playing
+audio to text and sending back to UI for playing: done
 1. taking audio,splliting on silence, splitting audio,  send for transcription using openai audio api
 // AI voice detection
 2. each splitted audio, analyse voice, create voice label a,b and created srt file with voice labelling or update json to reflect the voice 
@@ -15,8 +15,9 @@ picking domain name:
     2. which can be picked by SEO 
     3. FOR which SEO effort has to be added 
 
-buying domain 
+buying domain : done
 integrating payment
+
 
 asking in reddit help about adding color to speaker subtitles
 - I have created my side project on subtitle generation through AI with this nd this feature
@@ -56,3 +57,7 @@ _______________reddit project________________
     a. resume 
     b. portfolio
     c. linkedin
+
+
+payment chart update with plans: todo
+

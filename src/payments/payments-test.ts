@@ -38,10 +38,13 @@ async function runTests() {
     let user: any = await prismaService.user.create({
       data: {
         email,
-        subscriptionTier: 'FREE',
       },
     });
     console.log(`✔ Created test user: ${email} with ID: ${user.id}`);
+
+    // Seed the plans in the database first
+    console.log('Seeding plans database using getPlans self-healing query...');
+    await paymentsService.getPlans();
 
     // 3. Test Checkout Session creation
     console.log('Testing checkout session creation...');
@@ -113,7 +116,13 @@ async function runTests() {
     if (user.subscription.plan.name !== 'PRO') {
       throw new Error(`Expected subscription plan name to be PRO, got ${user.subscription.plan.name}`);
     }
-    console.log('✔ Database verification: Relational Subscription record verified successfully');
+    if (!user.subscription.plan.benefits || user.subscription.plan.benefits.length === 0) {
+      throw new Error('Expected subscription plan benefits to be populated, but got none');
+    }
+    if (!user.subscription.plan.limitations || user.subscription.plan.limitations.length === 0) {
+      throw new Error('Expected subscription plan limitations to be populated, but got none');
+    }
+    console.log('✔ Database verification: Relational Subscription record & benefits/limitations verified successfully');
 
     if (user.orders.length === 0) {
       throw new Error('Expected at least one order record, but none found');
@@ -126,6 +135,57 @@ async function runTests() {
       throw new Error(`Expected order plan name to be PRO, got ${order.plan.name}`);
     }
     console.log('✔ Database verification: Relational Order record verified successfully');
+
+    // 4.5. Test Webhook for non-existent subscription plan
+    console.log('Testing webhook upgrade with non-existent plan (should throw error and log file)...');
+    const invalidPayload = {
+      type: 'payment.succeeded',
+      data: {
+        metadata: {
+          userId: user.id,
+          tier: 'NON_EXISTENT_TIER',
+        },
+      },
+    };
+
+    const invalidBody = JSON.stringify(invalidPayload);
+    const invalidId = 'evt_test_invalid_123';
+    const invalidTimestamp = Math.floor(Date.now() / 1000).toString();
+    const invalidSignature = generateSvixSignature(process.env.DODO_PAYMENTS_WEBHOOK_KEY!, invalidId, invalidTimestamp, invalidBody);
+
+    const unwrappedInvalid = paymentsService.dodoClient.webhooks.unwrap(invalidBody, {
+      headers: {
+        'webhook-id': invalidId,
+        'webhook-signature': invalidSignature,
+        'webhook-timestamp': invalidTimestamp,
+      },
+    });
+
+    try {
+      await paymentsService.handleWebhookEvent(unwrappedInvalid);
+      throw new Error('Expected handleWebhookEvent to throw an error for non-existent plan, but it did not.');
+    } catch (err: any) {
+      console.log('✔ Correctly threw error for missing plan:', err.message);
+      
+      const fs = require('fs');
+      const path = require('path');
+      const logsDir = path.join(process.cwd(), 'logs');
+      const files = fs.readdirSync(logsDir);
+      const logFile = files.find((f: string) => f.startsWith(`failed-plan-${user.id}-NON_EXISTENT_TIER`));
+      
+      if (!logFile) {
+        throw new Error('Expected a log file to be created for the failed plan upgrade event, but none was found.');
+      }
+      
+      const logContent = JSON.parse(fs.readFileSync(path.join(logsDir, logFile), 'utf-8'));
+      if (logContent.tier !== 'NON_EXISTENT_TIER' || logContent.userId !== user.id) {
+        throw new Error('Log file content does not match the failed plan upgrade details.');
+      }
+      console.log('✔ Log file verified successfully:', logFile);
+      
+      // Cleanup log file
+      fs.unlinkSync(path.join(logsDir, logFile));
+    }
 
     // 5. Test Webhook Downgrade
     console.log('Testing subscription failure and FREE downgrade...');

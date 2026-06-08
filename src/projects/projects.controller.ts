@@ -3,6 +3,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto, UpdateSettingsDto } from './dto/project.dto';
 import { Request } from 'express';
@@ -46,7 +47,7 @@ export class ProjectsController {
     FileInterceptor('audioFile', {
       storage: diskStorage({
         destination: (req, file, cb) => {
-          const uploadPath = './temp-uploads';
+          const uploadPath = path.join(os.tmpdir(), 'addsubtitles-uploads');
           if (!fs.existsSync(uploadPath)) {
             fs.mkdirSync(uploadPath, { recursive: true });
           }

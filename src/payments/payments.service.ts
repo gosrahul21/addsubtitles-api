@@ -2,6 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import DodoPayments from 'dodopayments';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as winston from 'winston';
+import { SubscriptionStatus } from '../common/types/subscription-status.enum';
+import { OrderStatus } from '../common/types/order-status.enum';
+import { PaymentGateway } from '../common/types/payment-gateway.enum';
+import { RedisService } from '../redis/redis.service';
+import { CACHE_KEYS } from '../common/constants/cache.constants';
 
 @Injectable()
 export class PaymentsService {
@@ -11,6 +19,7 @@ export class PaymentsService {
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
+    private redisService: RedisService,
   ) {
     this.dodoClient = new DodoPayments({
       bearerToken: this.configService.get<string>('DODO_PAYMENTS_API_KEY') || 'placeholder_api_key',
@@ -68,31 +77,42 @@ export class PaymentsService {
       return;
     }
 
-    // Default plan seeding attributes based on the tier
-    let price = 19.00;
-    let daysCovered = 30;
-    if (tier === 'ENTERPRISE') {
-      price = 99.00;
-    } else if (tier === 'FREE') {
-      price = 0.00;
-      daysCovered = 99999;
-    }
-
     try {
-      await this.prisma.$transaction(async (tx) => {
-        // 1. Find or dynamically seed the SubscriptionPlan
-        let plan = await tx.subscriptionPlan.findFirst({
+      await this.prisma.$transaction(async (tx: any) => {
+        // 1. Find the SubscriptionPlan
+        const plan = await tx.subscriptionPlan.findFirst({
           where: { name: tier },
         });
 
         if (!plan) {
-          plan = await tx.subscriptionPlan.create({
-            data: {
-              name: tier,
-              price,
-              daysCovered,
-            },
+          // Log the event to a file using Winston
+          const logsDir = path.join(process.cwd(), 'logs');
+          if (!fs.existsSync(logsDir)) {
+            fs.mkdirSync(logsDir, { recursive: true });
+          }
+          const logFilePath = path.join(logsDir, `failed-plan-${userId}-${tier}-${Date.now()}.log`);
+
+          const winstonLogger = winston.createLogger({
+            level: 'error',
+            format: winston.format.combine(
+              winston.format.timestamp(),
+              winston.format.json(),
+            ),
+            transports: [
+              new winston.transports.File({ filename: logFilePath }),
+            ],
           });
+
+          winstonLogger.error(`Failed to upgrade user ${userId} to tier ${tier} because the subscription plan was not found.`, {
+            userId,
+            tier,
+            eventData: data,
+          });
+
+          // Flush winston stream and close
+          winstonLogger.close();
+
+          throw new Error(`SubscriptionPlan not found for name: ${tier}`);
         }
 
         // 2. Upsert Subscription (1-to-1 with User using userId as primary key)
@@ -106,14 +126,14 @@ export class PaymentsService {
             subscriptionPlanId: plan.id,
             startDate,
             endDate,
-            status: 'active',
+            status: SubscriptionStatus.ACTIVE,
           },
           create: {
             userId,
             subscriptionPlanId: plan.id,
             startDate,
             endDate,
-            status: 'active',
+            status: SubscriptionStatus.ACTIVE,
           },
         });
 
@@ -128,18 +148,16 @@ export class PaymentsService {
             subscriptionPlanId: plan.id,
             amount,
             currency,
-            status: 'completed',
-            paymentGateway: 'DODO_PAYMENTS',
+            status: OrderStatus.COMPLETED,
+            paymentGateway: PaymentGateway.DODO_PAYMENTS,
             gatewayOrderId,
           },
         });
 
-        // 4. Update the user's tier status field
-        await tx.user.update({
-          where: { id: userId },
-          data: { subscriptionTier: tier },
-        });
       });
+
+      // Invalidate the user profile cache so the upgrade reflects immediately
+      await this.redisService.del(CACHE_KEYS.USER_PROFILE(userId));
 
       this.logger.log(`User ${userId} successfully upgraded to tier ${tier} with active subscription & completed order.`);
     } catch (error) {
@@ -156,10 +174,12 @@ export class PaymentsService {
       return;
     }
 
-    const status = eventType === 'subscription.cancelled' ? 'cancelled' : 'expired';
+    const status = eventType === 'subscription.cancelled'
+      ? SubscriptionStatus.CANCELLED
+      : SubscriptionStatus.EXPIRED;
 
     try {
-      await this.prisma.$transaction(async (tx) => {
+      await this.prisma.$transaction(async (tx: any) => {
         // 1. Update subscription status if exists
         const subscription = await tx.subscription.findUnique({
           where: { userId },
@@ -172,17 +192,45 @@ export class PaymentsService {
           });
         }
 
-        // 2. Reset user subscription tier to FREE
-        await tx.user.update({
-          where: { id: userId },
-          data: { subscriptionTier: 'FREE' },
-        });
       });
 
-      this.logger.log(`User ${userId} subscription status updated to ${status} and tier reset to FREE.`);
+      // Invalidate user cache on downgrade/cancel
+      await this.redisService.del(CACHE_KEYS.USER_PROFILE(userId));
+
+      this.logger.log(`User ${userId} subscription status updated to ${status}.`);
     } catch (error) {
       this.logger.error(`Failed to process subscription failure (${eventType}) for user ${userId}: ${error.message}`, error.stack);
       throw error;
     }
+  }
+
+  async getPlans() {
+    const cacheKey = CACHE_KEYS.SUBSCRIPTION_PLANS;
+
+    const cached = await this.redisService.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
+    const plans = await (this.prisma as any).subscriptionPlan.findMany({
+      orderBy: { price: 'asc' },
+    });
+
+    // Cache for 1 hour (3600 seconds)
+    await this.redisService.set(cacheKey, JSON.stringify(plans), 3600);
+
+    return plans;
+  }
+
+  async updatePlan(planId: string, data: any) {
+    const updated = await (this.prisma as any).subscriptionPlan.update({
+      where: { id: planId },
+      data,
+    });
+
+    // Invalidate the cache so the frontend sees the new pricing matrix immediately
+    await this.redisService.del(CACHE_KEYS.SUBSCRIPTION_PLANS);
+
+    return updated;
   }
 }

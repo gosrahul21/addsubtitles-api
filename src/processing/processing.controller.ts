@@ -33,7 +33,15 @@ export class ProcessingController {
   ) {
     const project = await this.prisma.project.findUnique({
       where: { id },
-      include: { user: true },
+      include: { 
+        user: {
+          include: {
+            subscription: {
+              include: { plan: true }
+            }
+          }
+        } 
+      },
     });
     if (!project) {
       throw new BadRequestException('Project not found');
@@ -44,7 +52,7 @@ export class ProcessingController {
 
     // Determine current user context
     const tokenUser = this.getAuthenticatedUserOrNull(req);
-    const subscriptionTier = project.user?.subscriptionTier || (tokenUser ? tokenUser.subscriptionTier : 'FREE');
+    const subscriptionTier = project.user?.subscription?.plan?.name || (tokenUser ? tokenUser.subscriptionTier : 'FREE');
 
     // Apply 10-processing limit to Free or Guest/Anonymous users
     if (!project.userId || subscriptionTier === 'FREE') {

@@ -9,6 +9,7 @@ import { ProcessingModule } from './processing/processing.module';
 import { ExportModule } from './export/export.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PresetsModule } from './presets/presets.module';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { PresetsModule } from './presets/presets.module';
 
     // Database
     PrismaModule,
+    RedisModule,
 
     // Monolith Scaffolds
     AuthModule,
