@@ -24,6 +24,7 @@ export class JwtAuthGuard implements CanActivate {
       const payload = await this.jwtService.verifyAsync(token, {
         secret: process.env.JWT_ACCESS_SECRET || 'access-secret-key-123',
       });
+
       request['user'] = payload;
 
       // Check for required roles
@@ -32,7 +33,7 @@ export class JwtAuthGuard implements CanActivate {
         context.getClass(),
       ]);
 
-      if (!requiredRoles) {
+      if (!requiredRoles || requiredRoles.length === 0) {
         return true;
       }
 

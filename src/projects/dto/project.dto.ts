@@ -7,15 +7,59 @@ export class CreateProjectDto {
 }
 
 export class UpdateSettingsDto {
-  @IsNumber()
-  fontSize: number;
-
+  @IsOptional()
   @IsString()
-  fontColor: string;
+  fontColor?: string;
 
+  @IsOptional()
   @IsString()
-  fontFamily: string;
+  fontFamily?: string;
 
+  @IsOptional()
+  @IsObject()
+  subtitleStyle?: object;
+
+  @IsOptional()
+  @IsString()
+  bgStyle?: string;
+
+  @IsOptional()
+  @IsString()
+  bgColor?: string;
+
+  @IsOptional()
+  @IsString()
+  outline?: string;
+
+  @IsOptional()
+  @IsString()
+  shadow?: string;
+
+  @IsOptional()
+  @IsString()
+  subtitleAnim?: string;
+
+  @IsOptional()
+  @IsString()
+  wordAnim?: string;
+
+  @IsOptional()
   @IsNumber()
-  zoomLevel: number;
+  subtitleFontSize?: number;
+
+  @IsOptional()
+  @IsNumber()
+  maxLines?: number;
+
+  @IsOptional()
+  @IsNumber()
+  lineSpacing?: number;
+
+  @IsOptional()
+  @IsString()
+  fontAlign?: string;
+
+  @IsOptional()
+  @IsObject()
+  subtitleBounds?: object;
 }

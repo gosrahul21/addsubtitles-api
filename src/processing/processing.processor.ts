@@ -9,40 +9,18 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import ffmpeg from 'fluent-ffmpeg';
-import { OpenAI } from 'openai';
-import { execSync } from 'child_process';
-
-interface SilenceInterval {
-  start: number;
-  end: number;
-}
-
-interface SpeechSegment {
-  start: number;
-  end: number;
-}
-
-interface WordEntry {
-  word: string;
-  start: number;
-  end: number;
-  speaker?: string;
-}
+import { DeepgramService, WordEntry } from '../deepgram/deepgram.service';
 
 @Injectable()
 @Processor('audio-processing')
 export class ProcessingProcessor extends WorkerHost {
-  private openai: OpenAI;
-
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
     private redisService: RedisService,
+    private deepgramService: DeepgramService,
   ) {
     super();
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY || 'placeholder_openai_key',
-    });
   }
 
   // Orchestrator method triggered by BullMQ
@@ -67,25 +45,17 @@ export class ProcessingProcessor extends WorkerHost {
       const rawAudioPath = path.join(workDir, 'extracted_full.wav');
       await this.extractAudioChannel(videoUrl, rawAudioPath);
       
-      // Get full duration of extracted audio file
       const totalDuration = await this.getAudioDuration(rawAudioPath);
       console.log(`[Job ${job.id}] Audio extracted: ${totalDuration}s long.`);
 
-      // Step 2: Detect silence points in the track
-      const silences = await this.detectSilences(rawAudioPath);
-      console.log(`[Job ${job.id}] Detected silences:`, silences);
+      // Step 2: Transcribe using Deepgram (handles utterances automatically)
+      const audioBuffer = fs.readFileSync(rawAudioPath);
+      const words = await this.deepgramService.transcribeAudio(audioBuffer, 'en');
 
-      // Calculate speech segments between silences
-      const speechSegments = this.calculateSpeechSegments(silences, totalDuration);
-      console.log(`[Job ${job.id}] Slicing plan calculated:`, speechSegments);
+      // Step 3: Save subtitles to Database
+      await this.saveSubtitlesToDb(projectId, words);
 
-      // Step 3: Chop, Transcribe, and Cluster speakers
-      const stitchedWords = await this.processSpeechSegmentsTranscription(rawAudioPath, speechSegments, workDir);
-
-      // Step 4: Save subtitles to Database
-      await this.saveSubtitlesToDb(projectId, stitchedWords);
-
-      // Step 5: Update database project status
+      // Step 4: Update database project status
       await this.prisma.project.update({
         where: { id: projectId },
         data: { status: 'COMPLETED' },
@@ -132,164 +102,24 @@ export class ProcessingProcessor extends WorkerHost {
     });
   }
 
-  // 3. Intelligent Silence detection using silencedetect filter
-  private detectSilences(audioPath: string): Promise<SilenceInterval[]> {
-    return new Promise((resolve, reject) => {
-      const silences: SilenceInterval[] = [];
-      let currentSilenceStart: number | null = null;
-
-      // Filter looks for silences of at least 0.5s duration below -30dB
-      ffmpeg(audioPath)
-        .audioFilters('silencedetect=noise=-30dB:d=0.5')
-        .format('null')
-        .save('-')
-        .on('stderr', (line: string) => {
-          const startMatch = line.match(/silence_start:\s*([\d.]+)/);
-          const endMatch = line.match(/silence_end:\s*([\d.]+)\s*\|\s*silence_duration/);
-
-          if (startMatch) {
-            currentSilenceStart = parseFloat(startMatch[1]);
-          }
-          if (endMatch && currentSilenceStart !== null) {
-            silences.push({
-              start: currentSilenceStart,
-              end: parseFloat(endMatch[1]),
-            });
-            currentSilenceStart = null;
-          }
-        })
-        .on('end', () => resolve(silences))
-        .on('error', (err) => reject(err));
-    });
-  }
-
-  // 4. Calculate speech segments (non-silent parts of the audio)
-  private calculateSpeechSegments(silences: SilenceInterval[], totalDuration: number): SpeechSegment[] {
-    const segments: SpeechSegment[] = [];
-    let currentStart = 0;
-
-    for (const silence of silences) {
-      if (silence.start - currentStart > 0.2) {
-        segments.push({ start: currentStart, end: silence.start });
-      }
-      currentStart = silence.end;
-    }
-
-    if (totalDuration - currentStart > 0.2) {
-      segments.push({ start: currentStart, end: totalDuration });
-    }
-
-    if (segments.length === 0) {
-      segments.push({ start: 0, end: totalDuration });
-    }
-
-    return segments;
-  }
-
-  // 5. Slice speech segments, fetch OpenAI Whisper transcriptions, and cluster voices
-  private async processSpeechSegmentsTranscription(
-    audioPath: string,
-    segments: SpeechSegment[],
-    workDir: string
-  ): Promise<WordEntry[]> {
-    const flatWords: WordEntry[] = [];
-    const chunkPaths: string[] = [];
-
-    // Slice all chunks first
-    for (let i = 0; i < segments.length; i++) {
-      const { start, end } = segments[i];
-      const duration = end - start;
-      const chunkPath = path.join(workDir, `chunk_${i}.wav`);
-      chunkPaths.push(chunkPath);
-
-      await new Promise<void>((resolve, reject) => {
-        ffmpeg(audioPath)
-          .seekInput(start)
-          .duration(duration)
-          .audioCodec('pcm_s16le')
-          .audioChannels(1)
-          .audioFrequency(16000)
-          .on('end', () => resolve())
-          .on('error', (err) => reject(err))
-          .save(chunkPath);
-      });
-    }
-
-    // Run Python voice analyzer script to cluster speakers
-    let speakerMapping: Record<string, string> = {};
-    try {
-      const scriptPath = path.join(process.cwd(), 'src/processing/voice_analyzer.py');
-      const stdout = execSync(`python3 "${scriptPath}" "${workDir}"`, { encoding: 'utf-8' });
-      speakerMapping = JSON.parse(stdout);
-    } catch (err) {
-      console.error('Failed to run voice analyzer script, defaulting all speakers to A:', err);
-    }
-
-    // Transcribe each chunk and assign speaker labels
-    for (let i = 0; i < segments.length; i++) {
-      const { start } = segments[i];
-      const chunkPath = chunkPaths[i];
-      
-      const words = await this.callOpenAITranscription(chunkPath, start);
-      
-      const filename = path.basename(chunkPath);
-      const speakerLabel = speakerMapping[filename] || 'A';
-
-      for (const w of words) {
-        w.speaker = speakerLabel;
-      }
-
-      flatWords.push(...words);
-    }
-
-    return flatWords;
-  }
-
-  // 6. Call OpenAI Audio Transcription API (Whisper-1 with word-level timestamps)
-  private async callOpenAITranscription(filePath: string, timeOffset: number): Promise<WordEntry[]> {
-    try {
-      const transcription = await this.openai.audio.transcriptions.create({
-        file: fs.createReadStream(filePath),
-        model: 'whisper-1',
-        response_format: 'verbose_json',
-        timestamp_granularities: ['word'],
-      });
-
-      const words = (transcription as any).words || [];
-      return words.map((w: any) => ({
-        word: w.word,
-        start: w.start + timeOffset,
-        end: w.end + timeOffset,
-      }));
-    } catch (err) {
-      console.error(`[OpenAI Transcription] Failed for file ${filePath}:`, err);
-      return [];
-    }
-  }
-
-  // 7. Save Flat Word List into Subtitles blocks in PostgreSQL
+  // 3. Save Flat Word List into Subtitles blocks in PostgreSQL
   private async saveSubtitlesToDb(projectId: string, words: WordEntry[]) {
     if (words.length === 0) return;
 
-    // Group flat words into 7-word subtitle blocks
-    const MAX_WORDS = 7;
-    const blocks: { start: number; end: number; text: string; words: WordEntry[]; speaker?: string }[] = [];
+    // Use DeepgramService to logically group words based on natural pauses
+    const groupedBlocks = this.deepgramService.groupIntoBlocks(words);
     
-    for (let i = 0; i < words.length; i += MAX_WORDS) {
-      const chunk = words.slice(i, i + MAX_WORDS);
-      const text = chunk.map(w => w.word).join(' ');
-      blocks.push({
-        start: chunk[0].start,
-        end: chunk[chunk.length - 1].end,
-        text,
-        words: chunk,
-        speaker: chunk[0].speaker,
-      });
-    }
+    const dbBlocks = groupedBlocks.map(b => ({
+      start: b.start,
+      end: b.end,
+      text: b.words.map(w => w.word).join(' '),
+      words: b.words,
+      speaker: b.words[0]?.speaker || 'A',
+    }));
 
     // Insert as Prisma transaction
     await this.prisma.$transaction(
-      blocks.map((b) =>
+      dbBlocks.map((b) =>
         this.prisma.subtitle.create({
           data: {
             projectId,
@@ -305,4 +135,3 @@ export class ProcessingProcessor extends WorkerHost {
     );
   }
 }
-

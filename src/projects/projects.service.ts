@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto, UpdateSettingsDto } from './dto/project.dto';
 import { RedisService } from '../redis/redis.service';
 import { CACHE_KEYS } from '../common/constants/cache.constants';
+import { ProjectStatus } from 'src/common/types/project-status.enum';
 
 @Injectable()
 export class ProjectsService {
@@ -12,13 +13,16 @@ export class ProjectsService {
   ) {}
 
   async createProject(dto: CreateProjectDto, userId: string | null) {
-    return this.prisma.project.create({
+    const project = await this.prisma.project.create({
       data: {
         userId,
         sessionId: dto.sessionId || null,
-        status: 'PENDING',
+        status: ProjectStatus.PENDING,
       },
     });
+    // make sure cache key is stored cleared
+    await this.redisService.del(CACHE_KEYS.PROJECT_DETAILS(project.id));
+    return project;
   }
 
   async saveUploadedVideo(projectId: string, videoUrl: string) {
@@ -50,10 +54,8 @@ export class ProjectsService {
       where: { id: projectId },
       data: {
         settingsJson: {
-          fontSize: dto.fontSize,
-          fontColor: dto.fontColor,
-          fontFamily: dto.fontFamily,
-          zoomLevel: dto.zoomLevel,
+          ...(project.settingsJson as object),
+          ...dto,
         },
       },
     });

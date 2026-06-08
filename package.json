@@ -14,9 +14,11 @@
     "start:prod": "node dist/src/main",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "test:payments": "ts-node src/payments/payments-test.ts"
+    "test:payments": "ts-node src/payments/payments-test.ts",
+    "clear-cache":"ts-node clear_cache.ts"
   },
   "dependencies": {
+    "@deepgram/sdk": "^5.4.0",
     "@nestjs/bullmq": "^10.0.0",
     "@nestjs/common": "^10.0.0",
     "@nestjs/config": "^3.0.0",

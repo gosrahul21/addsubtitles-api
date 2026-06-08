@@ -5,9 +5,12 @@ import { ExportService } from './export.service';
 import { ExportProcessor } from './export.processor';
 import { AuthModule } from '../auth/auth.module';
 
+import { DeepgramModule } from '../deepgram/deepgram.module';
+
 @Module({
   imports: [
     AuthModule,
+    DeepgramModule,
     // Register the rendering queue
     BullModule.registerQueue({
       name: 'rendering',

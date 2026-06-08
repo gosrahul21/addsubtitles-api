@@ -22,7 +22,7 @@ async function main() {
     },
     {
       name: 'PRO',
-      price: 19.00,
+      price: 9.00,
       daysCovered: 30,
       benefits: [
         'No watermark 1080p exports',
@@ -34,8 +34,8 @@ async function main() {
       limitations: [],
     },
     {
-      name: 'ENTERPRISE',
-      price: 99.00,
+      name: 'PRO PLUS',
+      price: 14.00,
       daysCovered: 30,
       benefits: [
         '4K exports',

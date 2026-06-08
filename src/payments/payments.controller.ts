@@ -41,7 +41,8 @@ export class PaymentsController {
       throw new BadRequestException('Invalid subscription tier');
     }
 
-    const userId = req.user.id;
+    const userId = req.user.sub;
+    console.log("userId", userId)
     const checkoutUrl = await this.paymentsService.createCheckoutSession(userId, normalizedTier);
     return { checkoutUrl };
   }
@@ -62,6 +63,7 @@ export class PaymentsController {
     let event: any;
 
     try {
+      console.log(req.rawBody.toString('utf8'))
       // In production, pass a valid webhook_key or verify it manually if unwrap needs it.
       // The dodopayments unwrap function takes string body and headers to verify the signature.
       event = this.paymentsService.dodoClient.webhooks.unwrap(req.rawBody.toString('utf8'), {
@@ -71,7 +73,9 @@ export class PaymentsController {
           'webhook-timestamp': webhookTimestamp,
         },
       });
+      console.log(event);
     } catch (err) {
+      console.log(err)
       // If signature validation fails or it's misconfigured
       throw new UnauthorizedException('Invalid webhook signature');
     }
