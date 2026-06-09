@@ -83,6 +83,7 @@ model Project {
   userId       String?       @map("user_id") // Optional to support anonymous guest creations
   sessionId    String?       @map("session_id") // Used to track and claim guest projects on login
   status       ProjectStatus @default(PENDING)
+  language     String?
   videoUrl     String?       @map("video_url")
   settingsJson Json          @default("{}") @map("settings_json")
   createdAt    DateTime      @default(now()) @map("created_at")

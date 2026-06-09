@@ -4,6 +4,14 @@ export class CreateProjectDto {
   @IsString()
   @IsOptional()
   sessionId?: string; // Track anonymous guests
+
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @IsString()
+  @IsOptional()
+  language?: string;
 }
 
 export class UpdateSettingsDto {

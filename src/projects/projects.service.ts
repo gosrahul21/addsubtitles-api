@@ -13,9 +13,11 @@ export class ProjectsService {
   ) {}
 
   async createProject(dto: CreateProjectDto, userId: string | null) {
+
     const project = await this.prisma.project.create({
       data: {
         userId,
+        language: dto.language,
         sessionId: dto.sessionId || null,
         status: ProjectStatus.PENDING,
       },

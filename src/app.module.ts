@@ -6,7 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ProjectsModule } from './projects/projects.module';
 import { ProcessingModule } from './processing/processing.module';
-import { ExportModule } from './export/export.module';
+// import { ExportModule } from './export/export.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PresetsModule } from './presets/presets.module';
 import { RedisModule } from './redis/redis.module';
@@ -37,7 +37,7 @@ import { RedisModule } from './redis/redis.module';
     UsersModule,
     ProjectsModule,
     ProcessingModule,
-    ExportModule,
+    // ExportModule,
     PaymentsModule,
     PresetsModule,
   ],
