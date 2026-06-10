@@ -57,9 +57,9 @@ export class ProcessingService {
       }
 
       if (processCount >= AUTH_CONFIG.freeTierMaxProcessingLimit) {
-        throw new BadRequestException(
-          `Free tier processing limit exceeded (${AUTH_CONFIG.freeTierMaxProcessingLimit} videos maximum). Please upgrade your subscription tier to process subtitles faster!`
-        );
+        // throw new BadRequestException(
+        //   `Free tier processing limit exceeded (${AUTH_CONFIG.freeTierMaxProcessingLimit} videos maximum). Please upgrade your subscription tier to process subtitles faster!`
+        // );
       }
     }
 
