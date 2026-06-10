@@ -89,7 +89,7 @@ export class ProcessingProcessor extends WorkerHost {
       }
 
       // Step 3: Transcribe using Deepgram
-      const words = await this.deepgramService.transcribeAudio(audioBuffer, languageMap[project.language] || 'en');
+      const words = await this.deepgramService.transcribeAudio(audioBuffer, languageMap[project.language?.toLowerCase()] || 'en');
 
       // Step 3: Save subtitles to Database
       await this.saveSubtitlesToDb(projectId, words);
@@ -176,38 +176,24 @@ export class ProcessingProcessor extends WorkerHost {
     });
   }
 
-  // 3. Save Flat Word List into Subtitles blocks in PostgreSQL
+  // 3. Save word-level timings (wordsJson) into Subtitle blocks in PostgreSQL.
+  //    We preserve exact Deepgram timestamps on every word — no redistribution.
+  //    The frontend uses wordsJson directly for karaoke highlighting and converts
+  //    to SRT/VTT/ASS on download.
   private async saveSubtitlesToDb(projectId: string, words: WordEntry[]) {
     if (words.length === 0) return;
 
-    // Use DeepgramService to logically group words based on natural pauses
+    // Group into natural subtitle blocks (respects pauses, word count, duration caps)
     const groupedBlocks = this.deepgramService.groupIntoBlocks(words);
-    
-    const dbBlocks = groupedBlocks.map(b => {
-      const blockDuration = b.end - b.start;
-      const totalChars = Math.max(1, b.words.reduce((acc, w) => acc + w.word.length, 0));
-      let currentStart = b.start;
-      
-      const proportionalWords = b.words.map(w => {
-        const wordDur = (w.word.length / totalChars) * blockDuration;
-        const wordEnd = currentStart + wordDur;
-        const result = {
-          ...w,
-          start: Number(currentStart.toFixed(3)),
-          end: Number(wordEnd.toFixed(3))
-        };
-        currentStart = wordEnd;
-        return result;
-      });
 
-      return {
-        start: b.start,
-        end: b.end,
-        text: b.words.map(w => w.word).join(' '),
-        words: proportionalWords,
-        speaker: b.words[0]?.speaker || 'A',
-      };
-    });
+    const dbBlocks = groupedBlocks.map((b) => ({
+      start: b.start,
+      end: b.end,
+      text: b.words.map((w) => w.word).join(' '),
+      // Store raw Deepgram word entries — exact start/end preserved for karaoke
+      words: b.words,
+      speaker: b.words[0]?.speaker || 'A',
+    }));
 
     // Insert as Prisma transaction
     await this.prisma.$transaction(
@@ -220,10 +206,10 @@ export class ProcessingProcessor extends WorkerHost {
             timestampEnd: b.end,
             text: b.text,
             wordsJson: b.words as any,
-            speaker: b.speaker || 'A',
+            speaker: b.speaker,
           },
-        })
-      )
+        }),
+      ),
     );
   }
 }
