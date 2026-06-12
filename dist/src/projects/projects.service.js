@@ -71,7 +71,7 @@ let ProjectsService = class ProjectsService {
         }
         const project = await this.prisma.project.findUnique({
             where: { id: projectId },
-            include: { subtitles: true },
+            include: { subtitle: true },
         });
         if (!project) {
             throw new common_1.NotFoundException('Project not found');

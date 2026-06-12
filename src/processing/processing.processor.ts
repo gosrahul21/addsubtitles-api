@@ -13,7 +13,6 @@ import { languageMap } from 'src/common/constants/language.config';
 export class ProcessingProcessor extends WorkerHost {
   constructor(
     private prisma: PrismaService,
-    private configService: ConfigService,
     private redisService: RedisService,
     private deepgramService: DeepgramService,
   ) {
@@ -70,30 +69,23 @@ export class ProcessingProcessor extends WorkerHost {
     // Group into natural subtitle blocks (respects pauses, word count, duration caps)
     const groupedBlocks = this.deepgramService.groupIntoBlocks(words);
 
+    const { randomUUID } = require('crypto');
     const dbBlocks = groupedBlocks.map((b) => ({
-      start: b.start,
-      end: b.end,
+      id: randomUUID(),
+      language: 'en',
+      timestampStart: b.start,
+      timestampEnd: b.end,
       text: b.words.map((w) => w.word).join(' '),
-      // Store raw Deepgram word entries — exact start/end preserved for karaoke
-      words: b.words,
+      wordsJson: b.words,
       speaker: b.words[0]?.speaker || 'A',
     }));
 
-    // Insert as Prisma transaction
-    await this.prisma.$transaction(
-      dbBlocks.map((b) =>
-        this.prisma.subtitle.create({
-          data: {
-            projectId,
-            language: 'en',
-            timestampStart: b.start,
-            timestampEnd: b.end,
-            text: b.text,
-            wordsJson: b.words as any,
-            speaker: b.speaker,
-          },
-        }),
-      ),
-    );
+    // Insert single Subtitle document
+    await this.prisma.subtitle.create({
+      data: {
+        projectId,
+        subtitlesJson: dbBlocks as any,
+      },
+    });
   }
 }

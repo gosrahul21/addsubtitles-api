@@ -13,16 +13,14 @@ exports.ProcessingProcessor = void 0;
 const bullmq_1 = require("@nestjs/bullmq");
 const prisma_service_1 = require("../prisma/prisma.service");
 const common_1 = require("@nestjs/common");
-const config_1 = require("@nestjs/config");
 const redis_service_1 = require("../redis/redis.service");
 const cache_constants_1 = require("../common/constants/cache.constants");
 const deepgram_service_1 = require("../deepgram/deepgram.service");
 const language_config_1 = require("../common/constants/language.config");
 let ProcessingProcessor = class ProcessingProcessor extends bullmq_1.WorkerHost {
-    constructor(prisma, configService, redisService, deepgramService) {
+    constructor(prisma, redisService, deepgramService) {
         super();
         this.prisma = prisma;
-        this.configService = configService;
         this.redisService = redisService;
         this.deepgramService = deepgramService;
     }
@@ -59,24 +57,22 @@ let ProcessingProcessor = class ProcessingProcessor extends bullmq_1.WorkerHost 
         if (words.length === 0)
             return;
         const groupedBlocks = this.deepgramService.groupIntoBlocks(words);
+        const { randomUUID } = require('crypto');
         const dbBlocks = groupedBlocks.map((b) => ({
-            start: b.start,
-            end: b.end,
+            id: randomUUID(),
+            language: 'en',
+            timestampStart: b.start,
+            timestampEnd: b.end,
             text: b.words.map((w) => w.word).join(' '),
-            words: b.words,
+            wordsJson: b.words,
             speaker: b.words[0]?.speaker || 'A',
         }));
-        await this.prisma.$transaction(dbBlocks.map((b) => this.prisma.subtitle.create({
+        await this.prisma.subtitle.create({
             data: {
                 projectId,
-                language: 'en',
-                timestampStart: b.start,
-                timestampEnd: b.end,
-                text: b.text,
-                wordsJson: b.words,
-                speaker: b.speaker,
+                subtitlesJson: dbBlocks,
             },
-        })));
+        });
     }
 };
 exports.ProcessingProcessor = ProcessingProcessor;
@@ -84,7 +80,6 @@ exports.ProcessingProcessor = ProcessingProcessor = __decorate([
     (0, common_1.Injectable)(),
     (0, bullmq_1.Processor)('audio-processing'),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        config_1.ConfigService,
         redis_service_1.RedisService,
         deepgram_service_1.DeepgramService])
 ], ProcessingProcessor);

@@ -88,7 +88,7 @@ model Project {
   settingsJson Json          @default("{}") @map("settings_json")
   createdAt    DateTime      @default(now()) @map("created_at")
   user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subtitles    Subtitle[]
+  subtitle     Subtitle?
   exports      Export[]
 
   @@map("projects")
@@ -96,13 +96,8 @@ model Project {
 
 model Subtitle {
   id             String   @id @default(uuid())
-  projectId      String   @map("project_id")
-  language       String   @default("en")
-  timestampStart Float    @map("timestamp_start") // in seconds
-  timestampEnd   Float    @map("timestamp_end")   // in seconds
-  text           String
-  wordsJson      Json?    @map("words_json")      // Store raw per-word timings [{ word, start, end }]
-  speaker        String?                           // Speaker label (e.g. "A", "B")
+  projectId      String   @unique @map("project_id")
+  subtitlesJson  Json     @map("subtitles_json")
   project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@map("subtitles")
