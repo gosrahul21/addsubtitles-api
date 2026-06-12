@@ -1,3 +1,39 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
+
+# Environment variables (NEVER commit secrets)
 .env
+.env.*
+!.env.example
+
+# Uploaded / processed media files (can be large binaries)
+uploads/
+temp/
+tmp/
+*.wav
+*.mp3
+*.mp4
+*.webm
+*.mkv
+*.ogg
+*.flac
+
+# Logs
+logs/
+*.log
+
+# OS artefacts
+.DS_Store
+Thumbs.db
+
+# Python cache (voice_analyzer.py etc.)
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Editor directories
+.idea/
+.vscode/
