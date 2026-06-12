@@ -98,6 +98,43 @@ export class DeepgramService {
     
   }
 
+  async transcribeUrl(url: string, language: string = 'en'): Promise<WordEntry[]> {
+    const rawLang = (language || 'en').toLowerCase().trim();
+    const mappedLanguage = languageMap[rawLang] || rawLang;
+
+    const apiKey = process.env.DEEPGRAM_API_KEY;
+    if (!apiKey) {
+      throw new Error('DEEPGRAM_API_KEY is not set in environment');
+    }
+
+    const client = new DeepgramClient({ apiKey });
+
+    this.logger.log(`Calling Deepgram API with URL (model: ${this.DG_MODEL}, lang: ${mappedLanguage})...`);
+
+    const response: any = await client.listen.v1.media.transcribeUrl(
+      { url },
+      {
+        model: this.DG_MODEL,
+        language: mappedLanguage,
+        smart_format: true,
+        punctuate: true,
+        utterances: true,
+        words: true,
+      } as any
+    );
+
+    const words: WordEntry[] =
+      response?.results?.channels?.[0]?.alternatives?.[0]?.words?.map((w: any) => ({
+        word: w.punctuated_word ?? w.word,
+        start: w.start,
+        end: w.end,
+        speaker: 'A',
+      })) ?? [];
+
+    this.logger.log(`Deepgram returned ${words.length} words from URL transcription`);
+    return words;
+  }
+
   groupIntoBlocks(words: WordEntry[]): SubtitleBlock[] {
     const blocks: SubtitleBlock[] = [];
     if (words.length === 0) return blocks;

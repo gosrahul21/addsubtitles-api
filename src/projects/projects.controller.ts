@@ -1,9 +1,5 @@
-import { Controller, Post, Put, Get, Body, Param, Req, UseGuards, BadRequestException, UseInterceptors, UploadedFile } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import * as path from 'path';
-import * as fs from 'fs';
-import * as os from 'os';
+import { Controller, Post, Put, Get, Body, Param, Req, BadRequestException } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto, UpdateSettingsDto } from './dto/project.dto';
 import { Request } from 'express';
@@ -56,42 +52,41 @@ export class ProjectsController {
     return this.projectsService.createProject(dto, userId);
   }
 
+  @Get('cloudinary-signature')
+  getCloudinarySignature() {
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.CLOUDINARY_API_KEY;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+    if (!cloudName || !apiKey || !apiSecret) {
+      throw new BadRequestException('Cloudinary credentials are not properly configured.');
+    }
+
+    const timestamp = Math.round(new Date().getTime() / 1000).toString();
+    const paramsToSign = `timestamp=${timestamp}`;
+    const signature = crypto.createHash('sha1').update(paramsToSign + apiSecret).digest('hex');
+
+    return {
+      signature,
+      timestamp,
+      apiKey,
+      cloudName,
+    };
+  }
+
   @Post(':id/upload')
-  @UseInterceptors(
-    FileInterceptor('audioFile', {
-      storage: diskStorage({
-        destination: (req, file, cb) => {
-          const uploadPath = path.join(process.cwd(), 'uploads');
-          if (!fs.existsSync(uploadPath)) {
-            fs.mkdirSync(uploadPath, { recursive: true });
-          }
-          cb(null, uploadPath);
-        },
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `audio-${uniqueSuffix}${path.extname(file.originalname || '.wav')}`);
-        },
-      }),
-    }),
-  )
   async uploadVideo(
     @Param('id') id: string,
     @Req() req: Request,
-    @UploadedFile() file?: any,
     @Body('videoUrl') videoUrl?: string,
   ) {
-    let result;
-    if (file) {
-      // If a file was uploaded, we save its absolute path as the 'videoUrl'
-      const absolutePath = path.resolve(file.path);
-      result = await this.projectsService.saveUploadedVideo(id, absolutePath);
-    } else if (videoUrl) {
-      result = await this.projectsService.saveUploadedVideo(id, videoUrl);
-    } else {
-      throw new BadRequestException('Either an audioFile or videoUrl is required');
+    if (!videoUrl) {
+      throw new BadRequestException('videoUrl is required');
     }
 
-    if(result){
+    const result = await this.projectsService.saveUploadedVideo(id, videoUrl);
+
+    if (result) {
       const tokenUser = this.getAuthenticatedUserOrNull(req);
       await this.processingService.triggerProcessing(id, tokenUser);
       return result;
