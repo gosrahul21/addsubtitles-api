@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: addsubtitles-api
+    runtime: node
+    region: oregon
+    plan: free
+
+    # Install ALL deps (including devDeps so `nest` CLI is available), then build
+    buildCommand: npm install && npm run build && npx prisma generate
+
+    # Run the compiled output — no nest CLI needed at runtime
+    startCommand: node dist/src/main
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      # Set the rest in the Render dashboard (secrets):
+      # DATABASE_URL, REDIS_HOST, REDIS_PORT, REDIS_USERNAME, REDIS_PASSWORD,
+      # JWT_ACCESS_SECRET, JWT_REFRESH_SECRET,
+      # ALLOWED_ORIGINS, GOOGLE_CLIENT_ID,
+      # DEEPGRAM_API_KEY, CLOUDINARY_*, DODO_*
