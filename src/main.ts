@@ -18,10 +18,27 @@ async function bootstrap() {
     })
   );
 
-  // Enable CORS with credential passing (cookies)
+  // Enable CORS with credential passing (cookies).
+  // IMPORTANT: When credentials:true is set, the origin must be an explicit
+  // allowlist — a wildcard (*) is rejected by browsers. Never fall back to `true`
+  // in production; always set ALLOWED_ORIGINS in the deploy environment.
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+    : ['http://localhost:3000', 'http://localhost:5173'];
+
   app.enableCors({
-    origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : true,
+    origin: (origin, callback) => {
+      // Allow server-to-server calls (no Origin header) and listed origins
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS: origin '${origin}' not allowed`));
+      }
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    exposedHeaders: ['Set-Cookie'],
   });
 
   const port = process.env.PORT || 3000;
