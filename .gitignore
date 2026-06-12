@@ -2,7 +2,7 @@
 node_modules/
 
 # Build output
-dist/
+# dist/ is now tracked for deployment
 
 # Environment variables (NEVER commit secrets)
 .env
