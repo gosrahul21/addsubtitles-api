@@ -10,6 +10,7 @@ import { ProcessingModule } from './processing/processing.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PresetsModule } from './presets/presets.module';
 import { RedisModule } from './redis/redis.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { RedisModule } from './redis/redis.module';
     // ExportModule,
     PaymentsModule,
     PresetsModule,
+    HealthModule,
   ],
 })
 export class AppModule { }
