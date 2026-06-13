@@ -17,7 +17,7 @@ let ProjectsModule = class ProjectsModule {
 exports.ProjectsModule = ProjectsModule;
 exports.ProjectsModule = ProjectsModule = __decorate([
     (0, common_1.Module)({
-        imports: [auth_module_1.AuthModule, processing_module_1.ProcessingModule],
+        imports: [auth_module_1.AuthModule, (0, common_1.forwardRef)(() => processing_module_1.ProcessingModule)],
         controllers: [projects_controller_1.ProjectsController],
         providers: [projects_service_1.ProjectsService],
         exports: [projects_service_1.ProjectsService],

@@ -18,10 +18,13 @@ const bullmq_1 = require("@nestjs/bullmq");
 const bullmq_2 = require("bullmq");
 const prisma_service_1 = require("../prisma/prisma.service");
 const auth_config_1 = require("../auth/auth.config");
+const projects_service_1 = require("../projects/projects.service");
+const project_status_enum_1 = require("../common/types/project-status.enum");
 let ProcessingService = class ProcessingService {
-    constructor(audioQueue, prisma) {
+    constructor(audioQueue, prisma, projectsService) {
         this.audioQueue = audioQueue;
         this.prisma = prisma;
+        this.projectsService = projectsService;
     }
     async triggerProcessing(id, tokenUser = null) {
         const project = await this.prisma.project.findUnique({
@@ -64,10 +67,7 @@ let ProcessingService = class ProcessingService {
             if (processCount >= auth_config_1.AUTH_CONFIG.freeTierMaxProcessingLimit) {
             }
         }
-        await this.prisma.project.update({
-            where: { id },
-            data: { status: 'PROCESSING' },
-        });
+        await this.projectsService.updateProjectStatus(id, project_status_enum_1.ProjectStatus.PROCESSING);
         const job = await this.audioQueue.add('transcribe-job', {
             projectId: id,
             videoUrl: project.videoUrl,
@@ -83,7 +83,9 @@ exports.ProcessingService = ProcessingService;
 exports.ProcessingService = ProcessingService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, bullmq_1.InjectQueue)('audio-processing')),
+    __param(2, (0, common_1.Inject)((0, common_1.forwardRef)(() => projects_service_1.ProjectsService))),
     __metadata("design:paramtypes", [bullmq_2.Queue,
-        prisma_service_1.PrismaService])
+        prisma_service_1.PrismaService,
+        projects_service_1.ProjectsService])
 ], ProcessingService);
 //# sourceMappingURL=processing.service.js.map

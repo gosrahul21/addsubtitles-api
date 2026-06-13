@@ -1,11 +1,11 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ProjectsController } from './projects.controller';
 import { ProjectsService } from './projects.service';
 import { AuthModule } from '../auth/auth.module';
 import { ProcessingModule } from '../processing/processing.module';
 
 @Module({
-  imports: [AuthModule, ProcessingModule],
+  imports: [AuthModule, forwardRef(() => ProcessingModule)],
   controllers: [ProjectsController],
   providers: [ProjectsService],
   exports: [ProjectsService],

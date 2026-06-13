@@ -1,14 +1,18 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { AUTH_CONFIG } from '../auth/auth.config';
+import { ProjectsService } from '../projects/projects.service';
+import { ProjectStatus } from '../common/types/project-status.enum';
 
 @Injectable()
 export class ProcessingService {
   constructor(
     @InjectQueue('audio-processing') private audioQueue: Queue,
     private prisma: PrismaService,
+    @Inject(forwardRef(() => ProjectsService))
+    private projectsService: ProjectsService,
   ) {}
 
   async triggerProcessing(id: string, tokenUser: any = null) {
@@ -64,10 +68,7 @@ export class ProcessingService {
     }
 
     // Set status to processing
-    await this.prisma.project.update({
-      where: { id },
-      data: { status: 'PROCESSING' },
-    });
+    await this.projectsService.updateProjectStatus(id, ProjectStatus.PROCESSING);
 
     // Enqueue the background transcription job
     const job = await this.audioQueue.add('transcribe-job', {

@@ -34,9 +34,15 @@ let ProcessingProcessor = class ProcessingProcessor extends bullmq_1.WorkerHost 
                 data: { status: 'PROCESSING' },
             });
             await this.redisService.del(cache_constants_1.CACHE_KEYS.PROJECT_DETAILS(projectId));
-            console.log(`[Job ${job.id}] Sending URL directly to Deepgram: ${videoUrl}`);
-            const words = await this.deepgramService.transcribeUrl(videoUrl, language_config_1.languageMap[project.language?.toLowerCase()] || 'en');
+            const tempUrlCacheKey = `project:${projectId}:tempUrl`;
+            const tempAudioUrl = await this.redisService.get(tempUrlCacheKey);
+            const transcriptionUrl = tempAudioUrl || videoUrl;
+            console.log(`[Job ${job.id}] Sending URL directly to Deepgram: ${transcriptionUrl}`);
+            const words = await this.deepgramService.transcribeUrl(transcriptionUrl, language_config_1.languageMap[project.language?.toLowerCase()] || 'en');
             await this.saveSubtitlesToDb(projectId, words);
+            if (tempAudioUrl) {
+                await this.redisService.del(tempUrlCacheKey);
+            }
             await this.prisma.project.update({
                 where: { id: projectId },
                 data: { status: 'COMPLETED' },

@@ -1,10 +1,11 @@
-import { Controller, Post, Put, Get, Body, Param, Req, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Put, Get, Patch, Body, Param, Req, BadRequestException, UseGuards } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto, UpdateSettingsDto } from './dto/project.dto';
 import { Request } from 'express';
 import { JwtService } from '@nestjs/jwt';
 import { ProcessingService } from '../processing/processing.service';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
 @Controller('projects')
 export class ProjectsController {
@@ -51,6 +52,29 @@ export class ProjectsController {
     }
     return this.projectsService.createProject(dto, userId);
   }
+
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  async getUserProjects(@Req() req: Request & {user: any}) {
+    const userId = req.user.sub;
+
+    if (!userId) {
+      throw new BadRequestException('Authentication required');
+    }
+    return this.projectsService.getUserProjects(userId);
+  }
+
+  @Patch(':id/audio')
+  async uploadAudio(
+    @Param('id') id: string,
+    @Body('audioUrl') audioUrl: string
+  ) {
+    if (!audioUrl) {
+      throw new BadRequestException('audioUrl is required');
+    }
+    return this.projectsService.saveTempAudioUrl(id, audioUrl);
+  }
+
 
   @Get('cloudinary-signature')
   getCloudinarySignature() {

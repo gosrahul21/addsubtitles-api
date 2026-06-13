@@ -14,6 +14,7 @@ const processing_processor_1 = require("./processing.processor");
 const processing_service_1 = require("./processing.service");
 const auth_module_1 = require("../auth/auth.module");
 const deepgram_module_1 = require("../deepgram/deepgram.module");
+const projects_module_1 = require("../projects/projects.module");
 let ProcessingModule = class ProcessingModule {
 };
 exports.ProcessingModule = ProcessingModule;
@@ -22,6 +23,7 @@ exports.ProcessingModule = ProcessingModule = __decorate([
         imports: [
             auth_module_1.AuthModule,
             deepgram_module_1.DeepgramModule,
+            (0, common_1.forwardRef)(() => projects_module_1.ProjectsModule),
             bullmq_1.BullModule.registerQueue({
                 name: 'audio-processing',
             }),

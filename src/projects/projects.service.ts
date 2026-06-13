@@ -84,4 +84,33 @@ export class ProjectsService {
     await this.redisService.set(cacheKey, JSON.stringify(project), 3600);
     return project;
   }
+
+  async saveTempAudioUrl(projectId: string, audioUrl: string) {
+    const project = await this.prisma.project.findUnique({ where: { id: projectId } });
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    const cacheKey = `project:${projectId}:tempUrl`;
+    // Store temporarily in Redis for 1 hour (3600 seconds)
+    await this.redisService.set(cacheKey, audioUrl, 3600);
+    return { message: 'Temporary audio URL saved successfully' };
+  }
+
+  async getUserProjects(userId: string) {
+    const projects = await this.prisma.project.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return projects;
+  }
+
+  async updateProjectStatus(projectId: string, status: ProjectStatus) {
+    const project = await this.prisma.project.update({
+      where: { id: projectId },
+      data: { status },
+    });
+    await this.redisService.del(CACHE_KEYS.PROJECT_DETAILS(projectId));
+    return project;
+  }
 }

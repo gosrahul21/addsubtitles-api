@@ -19,6 +19,7 @@ const projects_service_1 = require("./projects.service");
 const project_dto_1 = require("./dto/project.dto");
 const jwt_1 = require("@nestjs/jwt");
 const processing_service_1 = require("../processing/processing.service");
+const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 let ProjectsController = class ProjectsController {
     constructor(projectsService, jwtService, processingService) {
         this.projectsService = projectsService;
@@ -58,6 +59,19 @@ let ProjectsController = class ProjectsController {
             throw new common_1.BadRequestException('Either authentication or guest sessionId is required');
         }
         return this.projectsService.createProject(dto, userId);
+    }
+    async getUserProjects(req) {
+        const userId = req.user.sub;
+        if (!userId) {
+            throw new common_1.BadRequestException('Authentication required');
+        }
+        return this.projectsService.getUserProjects(userId);
+    }
+    async uploadAudio(id, audioUrl) {
+        if (!audioUrl) {
+            throw new common_1.BadRequestException('audioUrl is required');
+        }
+        return this.projectsService.saveTempAudioUrl(id, audioUrl);
     }
     getCloudinarySignature() {
         const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
@@ -103,6 +117,22 @@ __decorate([
     __metadata("design:paramtypes", [project_dto_1.CreateProjectDto, Object]),
     __metadata("design:returntype", Promise)
 ], ProjectsController.prototype, "createProject", null);
+__decorate([
+    (0, common_1.Get)(),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], ProjectsController.prototype, "getUserProjects", null);
+__decorate([
+    (0, common_1.Patch)(':id/audio'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)('audioUrl')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], ProjectsController.prototype, "uploadAudio", null);
 __decorate([
     (0, common_1.Get)('cloudinary-signature'),
     __metadata("design:type", Function),

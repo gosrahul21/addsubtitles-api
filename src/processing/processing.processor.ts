@@ -33,12 +33,22 @@ export class ProcessingProcessor extends WorkerHost {
       });
       await this.redisService.del(CACHE_KEYS.PROJECT_DETAILS(projectId));
 
+      // Check for tempUrl in Redis
+      const tempUrlCacheKey = `project:${projectId}:tempUrl`;
+      const tempAudioUrl = await this.redisService.get(tempUrlCacheKey);
+      const transcriptionUrl = tempAudioUrl || videoUrl;
+
       // Step 1: Transcribe directly from URL using Deepgram
-      console.log(`[Job ${job.id}] Sending URL directly to Deepgram: ${videoUrl}`);
-      const words = await this.deepgramService.transcribeUrl(videoUrl, languageMap[project.language?.toLowerCase()] || 'en');
+      console.log(`[Job ${job.id}] Sending URL directly to Deepgram: ${transcriptionUrl}`);
+      const words = await this.deepgramService.transcribeUrl(transcriptionUrl, languageMap[project.language?.toLowerCase()] || 'en');
 
       // Step 2: Save subtitles to Database
       await this.saveSubtitlesToDb(projectId, words);
+
+      // Clean up tempUrl
+      if (tempAudioUrl) {
+        await this.redisService.del(tempUrlCacheKey);
+      }
 
       // Step 3: Update database project status
       await this.prisma.project.update({

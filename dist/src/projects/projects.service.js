@@ -79,6 +79,30 @@ let ProjectsService = class ProjectsService {
         await this.redisService.set(cacheKey, JSON.stringify(project), 3600);
         return project;
     }
+    async saveTempAudioUrl(projectId, audioUrl) {
+        const project = await this.prisma.project.findUnique({ where: { id: projectId } });
+        if (!project) {
+            throw new common_1.NotFoundException('Project not found');
+        }
+        const cacheKey = `project:${projectId}:tempUrl`;
+        await this.redisService.set(cacheKey, audioUrl, 3600);
+        return { message: 'Temporary audio URL saved successfully' };
+    }
+    async getUserProjects(userId) {
+        const projects = await this.prisma.project.findMany({
+            where: { userId },
+            orderBy: { createdAt: 'desc' },
+        });
+        return projects;
+    }
+    async updateProjectStatus(projectId, status) {
+        const project = await this.prisma.project.update({
+            where: { id: projectId },
+            data: { status },
+        });
+        await this.redisService.del(cache_constants_1.CACHE_KEYS.PROJECT_DETAILS(projectId));
+        return project;
+    }
 };
 exports.ProjectsService = ProjectsService;
 exports.ProjectsService = ProjectsService = __decorate([

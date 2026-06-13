@@ -1,6 +1,7 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto, UpdateSettingsDto } from './dto/project.dto';
 import { RedisService } from '../redis/redis.service';
+import { ProjectStatus } from 'src/common/types/project-status.enum';
 export declare class ProjectsService {
     private prisma;
     private redisService;
@@ -36,4 +37,27 @@ export declare class ProjectsService {
         userId: string | null;
     }>;
     getProject(projectId: string): Promise<any>;
+    saveTempAudioUrl(projectId: string, audioUrl: string): Promise<{
+        message: string;
+    }>;
+    getUserProjects(userId: string): Promise<{
+        sessionId: string | null;
+        id: string;
+        createdAt: Date;
+        status: import(".prisma/client").$Enums.ProjectStatus;
+        language: string | null;
+        videoUrl: string | null;
+        settingsJson: import("@prisma/client/runtime/library").JsonValue;
+        userId: string | null;
+    }[]>;
+    updateProjectStatus(projectId: string, status: ProjectStatus): Promise<{
+        sessionId: string | null;
+        id: string;
+        createdAt: Date;
+        status: import(".prisma/client").$Enums.ProjectStatus;
+        language: string | null;
+        videoUrl: string | null;
+        settingsJson: import("@prisma/client/runtime/library").JsonValue;
+        userId: string | null;
+    }>;
 }
