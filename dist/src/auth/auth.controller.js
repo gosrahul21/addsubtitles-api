@@ -65,8 +65,18 @@ let AuthController = class AuthController {
         if (refreshToken) {
             await this.authService.logout(refreshToken);
         }
-        res.clearCookie('access_token');
-        res.clearCookie('refresh_token', { path: '/auth/refresh' });
+        const isProduction = process.env.NODE_ENV === 'production';
+        res.clearCookie('access_token', {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: isProduction ? 'none' : 'lax',
+        });
+        res.clearCookie('refresh_token', {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: isProduction ? 'none' : 'lax',
+            path: '/auth/refresh',
+        });
         return { status: 'logged-out' };
     }
 };
