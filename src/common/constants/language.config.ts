@@ -1,16 +1,145 @@
+/**
+ * Deepgram Nova-2 supported languages.
+ * Keys are lowercase Deepgram language codes for direct lookup.
+ * The processor sends these directly to Deepgram.
+ *
+ * Also exported: SUPPORTED_LANGUAGES array for frontend dropdowns.
+ */
+
 export const languageMap: Record<string, string> = {
-    hindi: 'hi',
-    english: 'en',
-    spanish: 'es',
-    french: 'fr',
-    german: 'de',
-    italian: 'it',
-    portuguese: 'pt',
-    japanese: 'ja',
-    korean: 'ko',
-    chinese: 'zh',
-    dutch: 'nl',
-    turkish: 'tr',
-    russian: 'ru',
-    arabic: 'ar',
+  // Legacy display-name keys (backward compat with old projects)
+  'english': 'en',
+  'hindi': 'hi',
+  'spanish': 'es',
+  'french': 'fr',
+  'german': 'de',
+  'italian': 'it',
+  'portuguese': 'pt',
+  'japanese': 'ja',
+  'korean': 'ko',
+  'chinese': 'zh',
+  'dutch': 'nl',
+  'turkish': 'tr',
+  'russian': 'ru',
+  'arabic': 'ar',
+
+  // Deepgram code keys (new projects send code directly)
+  'en': 'en',
+  'en-us': 'en-US',
+  'en-au': 'en-AU',
+  'en-gb': 'en-GB',
+  'en-nz': 'en-NZ',
+  'en-in': 'en-IN',
+  'hi': 'hi',
+  'es': 'es',
+  'es-419': 'es-419',
+  'fr': 'fr',
+  'fr-ca': 'fr-CA',
+  'de': 'de',
+  'it': 'it',
+  'pt': 'pt',
+  'pt-br': 'pt-BR',
+  'ja': 'ja',
+  'ko': 'ko',
+  'zh': 'zh',
+  'zh-cn': 'zh-CN',
+  'zh-tw': 'zh-TW',
+  'nl': 'nl',
+  'tr': 'tr',
+  'ru': 'ru',
+  'ar': 'ar',
+  'bg': 'bg',
+  'ca': 'ca',
+  'cs': 'cs',
+  'da': 'da',
+  'da-dk': 'da-DK',
+  'el': 'el',
+  'et': 'et',
+  'fi': 'fi',
+  'fl': 'fl',
+  'hr': 'hr',
+  'hu': 'hu',
+  'id': 'id',
+  'lv': 'lv',
+  'lt': 'lt',
+  'ms': 'ms',
+  'multi': 'multi',
+  'no': 'no',
+  'pl': 'pl',
+  'ro': 'ro',
+  'sk': 'sk',
+  'sl': 'sl',
+  'sv': 'sv',
+  'sv-se': 'sv-SE',
+  'ta': 'ta',
+  'th': 'th',
+  'uk': 'uk',
+  'vi': 'vi',
+};
+
+/** Lookup helper: accepts display name or language code, returns Deepgram code */
+export function resolveLanguageCode(input: string): string {
+  if (!input) return 'en';
+  const key = input.toLowerCase().trim();
+  return languageMap[key] || 'en';
 }
+
+/** Structured list for frontend dropdowns */
+export interface SupportedLanguage {
+  label: string;
+  native: string;
+  code: string;
+  popular?: boolean;
+}
+
+export const SUPPORTED_LANGUAGES: SupportedLanguage[] = [
+  // Popular
+  { label: 'English (US)',       native: 'English',        code: 'en-US',  popular: true },
+  { label: 'English (UK)',       native: 'English',        code: 'en-GB',  popular: true },
+  { label: 'English (Australia)',native: 'English',        code: 'en-AU',  popular: true },
+  { label: 'English (India)',    native: 'English',        code: 'en-IN',  popular: true },
+  { label: 'Hindi',              native: 'हिन्दी',          code: 'hi',     popular: true },
+  { label: 'Spanish',            native: 'Español',        code: 'es',     popular: true },
+  { label: 'Spanish (Latin Am)',  native: 'Español',        code: 'es-419', popular: true },
+  { label: 'French',             native: 'Français',       code: 'fr',     popular: true },
+  { label: 'French (Canada)',    native: 'Français',       code: 'fr-CA',  popular: true },
+  { label: 'German',             native: 'Deutsch',        code: 'de',     popular: true },
+  { label: 'Italian',            native: 'Italiano',       code: 'it',     popular: true },
+  { label: 'Portuguese',         native: 'Português',      code: 'pt',     popular: true },
+  { label: 'Portuguese (Brazil)',native: 'Português',      code: 'pt-BR',  popular: true },
+  { label: 'Japanese',           native: '日本語',           code: 'ja',     popular: true },
+  { label: 'Korean',             native: '한국어',            code: 'ko',     popular: true },
+  { label: 'Chinese (Simplified)',native: '中文',            code: 'zh-CN',  popular: true },
+  { label: 'Chinese (Traditional)',native: '中文',           code: 'zh-TW',  popular: true },
+  { label: 'Arabic',             native: 'العربية',         code: 'ar',     popular: true },
+  { label: 'Russian',            native: 'Русский',        code: 'ru',     popular: true },
+  { label: 'Turkish',            native: 'Türkçe',         code: 'tr',     popular: true },
+  { label: 'Auto-Detect (Multi)',native: 'Auto',            code: 'multi',  popular: true },
+
+  // More languages
+  { label: 'Bulgarian',          native: 'Български',      code: 'bg' },
+  { label: 'Catalan',            native: 'Català',         code: 'ca' },
+  { label: 'Czech',              native: 'Čeština',        code: 'cs' },
+  { label: 'Danish',             native: 'Dansk',          code: 'da-DK' },
+  { label: 'Dutch',              native: 'Nederlands',     code: 'nl' },
+  { label: 'Estonian',           native: 'Eesti',          code: 'et' },
+  { label: 'Finnish',            native: 'Suomi',          code: 'fi' },
+  { label: 'Flemish',            native: 'Vlaams',         code: 'fl' },
+  { label: 'Greek',              native: 'Ελληνικά',       code: 'el' },
+  { label: 'Croatian',           native: 'Hrvatski',       code: 'hr' },
+  { label: 'Hungarian',          native: 'Magyar',         code: 'hu' },
+  { label: 'Indonesian',         native: 'Bahasa Indonesia', code: 'id' },
+  { label: 'Latvian',            native: 'Latviešu',       code: 'lv' },
+  { label: 'Lithuanian',         native: 'Lietuvių',       code: 'lt' },
+  { label: 'Malay',              native: 'Bahasa Melayu',  code: 'ms' },
+  { label: 'Norwegian',          native: 'Norsk',          code: 'no' },
+  { label: 'Polish',             native: 'Polski',         code: 'pl' },
+  { label: 'Romanian',           native: 'Română',         code: 'ro' },
+  { label: 'Slovak',             native: 'Slovenčina',     code: 'sk' },
+  { label: 'Slovenian',          native: 'Slovenščina',    code: 'sl' },
+  { label: 'Swedish',            native: 'Svenska',        code: 'sv-SE' },
+  { label: 'Tamil',              native: 'தமிழ்',            code: 'ta' },
+  { label: 'Thai',               native: 'ภาษาไทย',         code: 'th' },
+  { label: 'Ukrainian',          native: 'Українська',     code: 'uk' },
+  { label: 'Vietnamese',         native: 'Tiếng Việt',     code: 'vi' },
+];

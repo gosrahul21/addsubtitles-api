@@ -6,7 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../redis/redis.service';
 import { CACHE_KEYS } from '../common/constants/cache.constants';
 import { DeepgramService, WordEntry } from '../deepgram/deepgram.service';
-import { languageMap } from 'src/common/constants/language.config';
+import { resolveLanguageCode } from 'src/common/constants/language.config';
 
 @Injectable()
 @Processor('audio-processing')
@@ -40,7 +40,7 @@ export class ProcessingProcessor extends WorkerHost {
 
       // Step 1: Transcribe directly from URL using Deepgram
       console.log(`[Job ${job.id}] Sending URL directly to Deepgram: ${transcriptionUrl}`);
-      const words = await this.deepgramService.transcribeUrl(transcriptionUrl, languageMap[project.language?.toLowerCase()] || 'en');
+      const words = await this.deepgramService.transcribeUrl(transcriptionUrl, resolveLanguageCode(project.language || 'en'));
 
       // Step 2: Save subtitles to Database
       await this.saveSubtitlesToDb(projectId, words);
