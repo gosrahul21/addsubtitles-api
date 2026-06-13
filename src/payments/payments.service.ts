@@ -36,24 +36,33 @@ export class PaymentsService {
         new winston.transports.File({ filename: path.join(logsDir, 'webhook-events.log') }),
       ],
     });
+    const dodoApiKey = this.configService.get<string>('DODO_PAYMENTS_API_KEY') || this.configService.get<string>('DODO_PAYMENT_API_KEY') || 'placeholder_api_key';
+    const dodoEnv = (this.configService.get<string>('DODO_ENVIRONMENT') || 'test_mode') as any;
+
     this.dodoClient = new DodoPayments({
-      bearerToken: this.configService.get<string>('DODO_PAYMENTS_API_KEY') || this.configService.get<string>('DODO_PAYMENT_API_KEY') || 'placeholder_api_key',
-      environment: (this.configService.get<string>('DODO_ENVIRONMENT') || 'test_mode') as any,
-      // Webhook key is required to automatically verify webhook signatures via unwrap()
-      // @ts-ignore - Some versions of the SDK might expect it, some might not; safe to pass.
+      bearerToken: dodoApiKey,
+      environment: dodoEnv,
+      // @ts-ignore
       webhookKey: this.configService.get<string>('DODO_PAYMENTS_WEBHOOK_KEY') || 'placeholder_webhook_key',
     });
+
+    this.logger.log(`DodoPayments initialized — environment: "${dodoEnv}", key starts with: "${dodoApiKey.slice(0, 8)}..."`);
   }
 
   async createCheckoutSession(userId: string, tier: string) {
     try{
     // Placeholder product IDs based on tier. 
     // In production, these should be real product IDs from your Dodo Payments dashboard.
-    let productId = 'pdt_0Ngcp9nqD81hXQUuLoOq7';
+    const PRODUCT_IDS = {
+      PRO: this.configService.get<string>('DODO_PRODUCT_ID_PRO') || 'pdt_0Ngcp9nqD81hXQUuLoOq7',
+      PRO_PLUS: this.configService.get<string>('DODO_PRODUCT_ID_PRO_PLUS') || 'pdt_0NgcpIepz0KxbzFvGIkYL',
+    };
+
+    let productId = PRODUCT_IDS.PRO;
     if (tier === 'PRO') {
-      productId = 'pdt_0Ngcp9nqD81hXQUuLoOq7';
+      productId = PRODUCT_IDS.PRO;
     } else if (tier === 'PRO PLUS' || tier === 'PRO_PLUS') {
-      productId = 'pdt_0NgcpIepz0KxbzFvGIkYL';
+      productId = PRODUCT_IDS.PRO_PLUS;
     }
 
     const returnUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';

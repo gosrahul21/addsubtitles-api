@@ -40,20 +40,27 @@ let PaymentsService = PaymentsService_1 = class PaymentsService {
                 new winston.transports.File({ filename: path.join(logsDir, 'webhook-events.log') }),
             ],
         });
+        const dodoApiKey = this.configService.get('DODO_PAYMENTS_API_KEY') || this.configService.get('DODO_PAYMENT_API_KEY') || 'placeholder_api_key';
+        const dodoEnv = (this.configService.get('DODO_ENVIRONMENT') || 'test_mode');
         this.dodoClient = new dodopayments_1.default({
-            bearerToken: this.configService.get('DODO_PAYMENTS_API_KEY') || this.configService.get('DODO_PAYMENT_API_KEY') || 'placeholder_api_key',
-            environment: (this.configService.get('DODO_ENVIRONMENT') || 'test_mode'),
+            bearerToken: dodoApiKey,
+            environment: dodoEnv,
             webhookKey: this.configService.get('DODO_PAYMENTS_WEBHOOK_KEY') || 'placeholder_webhook_key',
         });
+        this.logger.log(`DodoPayments initialized — environment: "${dodoEnv}", key starts with: "${dodoApiKey.slice(0, 8)}..."`);
     }
     async createCheckoutSession(userId, tier) {
         try {
-            let productId = 'pdt_0Ngcp9nqD81hXQUuLoOq7';
+            const PRODUCT_IDS = {
+                PRO: this.configService.get('DODO_PRODUCT_ID_PRO') || 'pdt_0Ngcp9nqD81hXQUuLoOq7',
+                PRO_PLUS: this.configService.get('DODO_PRODUCT_ID_PRO_PLUS') || 'pdt_0NgcpIepz0KxbzFvGIkYL',
+            };
+            let productId = PRODUCT_IDS.PRO;
             if (tier === 'PRO') {
-                productId = 'pdt_0Ngcp9nqD81hXQUuLoOq7';
+                productId = PRODUCT_IDS.PRO;
             }
             else if (tier === 'PRO PLUS' || tier === 'PRO_PLUS') {
-                productId = 'pdt_0NgcpIepz0KxbzFvGIkYL';
+                productId = PRODUCT_IDS.PRO_PLUS;
             }
             const returnUrl = this.configService.get('FRONTEND_URL') || 'http://localhost:3000';
             const session = await this.dodoClient.checkoutSessions.create({
