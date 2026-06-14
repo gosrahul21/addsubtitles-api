@@ -6,5 +6,6 @@ exports.CACHE_KEYS = {
     USER_PROFILE: (userId) => `user_me_${userId}`,
     USER_PRESETS: (userId) => `presets_user_${userId}`,
     PROJECT_DETAILS: (projectId) => `project_${projectId}`,
+    TEMP_AUDIO_URL: (projectId) => `project_temp_audio_url_${projectId}`,
 };
 //# sourceMappingURL=cache.constants.js.map

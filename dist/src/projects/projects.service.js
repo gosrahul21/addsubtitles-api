@@ -15,10 +15,12 @@ const prisma_service_1 = require("../prisma/prisma.service");
 const redis_service_1 = require("../redis/redis.service");
 const cache_constants_1 = require("../common/constants/cache.constants");
 const project_status_enum_1 = require("../common/types/project-status.enum");
+const processing_service_1 = require("../processing/processing.service");
 let ProjectsService = class ProjectsService {
-    constructor(prisma, redisService) {
+    constructor(prisma, redisService, processingService) {
         this.prisma = prisma;
         this.redisService = redisService;
+        this.processingService = processingService;
     }
     async createProject(dto, userId) {
         const project = await this.prisma.project.create({
@@ -43,8 +45,11 @@ let ProjectsService = class ProjectsService {
                 videoUrl,
             },
         });
-        await this.redisService.del(cache_constants_1.CACHE_KEYS.PROJECT_DETAILS(projectId));
+        await this.delProjectCache(projectId);
         return updated;
+    }
+    async delProjectCache(projectId) {
+        await this.redisService.del(cache_constants_1.CACHE_KEYS.PROJECT_DETAILS(projectId));
     }
     async updateSettings(projectId, dto) {
         const project = await this.prisma.project.findUnique({ where: { id: projectId } });
@@ -60,7 +65,7 @@ let ProjectsService = class ProjectsService {
                 },
             },
         });
-        await this.redisService.del(cache_constants_1.CACHE_KEYS.PROJECT_DETAILS(projectId));
+        await this.delProjectCache(projectId);
         return updated;
     }
     async getProject(projectId) {
@@ -79,13 +84,22 @@ let ProjectsService = class ProjectsService {
         await this.redisService.set(cacheKey, JSON.stringify(project), 3600);
         return project;
     }
+    async getTempAudioUrl(projectId) {
+        const cacheKey = cache_constants_1.CACHE_KEYS.TEMP_AUDIO_URL(projectId);
+        const audioUrl = await this.redisService.get(cacheKey);
+        if (!audioUrl) {
+            throw new common_1.NotFoundException("No audio found");
+        }
+        return audioUrl;
+    }
     async saveTempAudioUrl(projectId, audioUrl) {
         const project = await this.prisma.project.findUnique({ where: { id: projectId } });
         if (!project) {
             throw new common_1.NotFoundException('Project not found');
         }
-        const cacheKey = `project:${projectId}:tempUrl`;
+        const cacheKey = cache_constants_1.CACHE_KEYS.TEMP_AUDIO_URL(projectId);
         await this.redisService.set(cacheKey, audioUrl, 3600);
+        await this.processingService.triggerProcessing(projectId);
         return { message: 'Temporary audio URL saved successfully' };
     }
     async getUserProjects(userId) {
@@ -108,6 +122,7 @@ exports.ProjectsService = ProjectsService;
 exports.ProjectsService = ProjectsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        redis_service_1.RedisService])
+        redis_service_1.RedisService,
+        processing_service_1.ProcessingService])
 ], ProjectsService);
 //# sourceMappingURL=projects.service.js.map

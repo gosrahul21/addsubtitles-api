@@ -75,7 +75,6 @@ export class ProjectsController {
     return this.projectsService.saveTempAudioUrl(id, audioUrl);
   }
 
-
   @Get('cloudinary-signature')
   getCloudinarySignature() {
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
@@ -109,12 +108,7 @@ export class ProjectsController {
     }
 
     const result = await this.projectsService.saveUploadedVideo(id, videoUrl);
-
-    if (result) {
-      const tokenUser = this.getAuthenticatedUserOrNull(req);
-      await this.processingService.triggerProcessing(id, tokenUser);
-      return result;
-    }
+    return result;
   }
 
   @Put(':id/settings')

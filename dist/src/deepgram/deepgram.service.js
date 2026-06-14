@@ -32,14 +32,16 @@ let DeepgramService = DeepgramService_1 = class DeepgramService {
         this.logger.log(`Calling Deepgram API (model: ${this.DG_MODEL}, lang: ${mappedLanguage})...`);
         const standaloneArrayBuffer = audioBuffer.buffer.slice(audioBuffer.byteOffset, audioBuffer.byteOffset + audioBuffer.byteLength);
         const audioBlob = new Blob([standaloneArrayBuffer], { type: 'audio/wav' });
-        const response = await client.listen.v1.media.transcribeFile(audioBlob, {
-            model: this.DG_MODEL,
+        const actualModel = mappedLanguage === 'en' ? 'nova-3' : 'nova-2';
+        const dgOptions = {
+            model: actualModel,
             ...(mappedLanguage === 'multi' ? { detect_language: true } : { language: mappedLanguage }),
             smart_format: true,
             punctuate: true,
             utterances: true,
             words: true,
-        });
+        };
+        const response = await client.listen.v1.media.transcribeFile(audioBlob, dgOptions);
         const words = response?.results?.channels?.[0]?.alternatives?.[0]?.words?.map((w) => ({
             word: w.punctuated_word ?? w.word,
             start: w.start,
@@ -50,22 +52,30 @@ let DeepgramService = DeepgramService_1 = class DeepgramService {
         return words;
     }
     async transcribeUrl(url, language = 'en') {
-        const rawLang = (language || 'en').toLowerCase().trim();
-        const mappedLanguage = language_config_1.languageMap[rawLang] || rawLang;
+        const mappedLanguage = language;
+        console.log(mappedLanguage);
         const apiKey = process.env.DEEPGRAM_API_KEY;
         if (!apiKey) {
             throw new Error('DEEPGRAM_API_KEY is not set in environment');
         }
         const client = new sdk_1.DeepgramClient({ apiKey });
-        this.logger.log(`Calling Deepgram API with URL (model: ${this.DG_MODEL}, lang: ${mappedLanguage})...`);
-        const response = await client.listen.v1.media.transcribeUrl({ url }, {
-            model: this.DG_MODEL,
+        const actualModel = mappedLanguage === 'en' ? 'nova-3' : 'nova-2';
+        this.logger.log(`Calling Deepgram API with URL (model: ${actualModel}, lang: ${mappedLanguage})...`);
+        const dgOptions = {
+            model: actualModel,
             ...(mappedLanguage === 'multi' ? { detect_language: true } : { language: mappedLanguage }),
             smart_format: true,
             punctuate: true,
             utterances: true,
             words: true,
-        });
+        };
+        this.logger.log(`Deepgram options: ${JSON.stringify(dgOptions)}`);
+        this.logger.log(`Downloading audio from URL to bypass Deepgram URL bug...`);
+        const res = await fetch(url);
+        const arrayBuffer = await res.arrayBuffer();
+        const standaloneBuffer = arrayBuffer.slice(0);
+        const audioBlob = new Blob([standaloneBuffer], { type: 'audio/wav' });
+        const response = await client.listen.v1.media.transcribeFile(audioBlob, dgOptions);
         const words = response?.results?.channels?.[0]?.alternatives?.[0]?.words?.map((w) => ({
             word: w.punctuated_word ?? w.word,
             start: w.start,

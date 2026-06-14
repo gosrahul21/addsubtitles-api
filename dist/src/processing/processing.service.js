@@ -17,66 +17,72 @@ const common_1 = require("@nestjs/common");
 const bullmq_1 = require("@nestjs/bullmq");
 const bullmq_2 = require("bullmq");
 const prisma_service_1 = require("../prisma/prisma.service");
-const auth_config_1 = require("../auth/auth.config");
 const projects_service_1 = require("../projects/projects.service");
 const project_status_enum_1 = require("../common/types/project-status.enum");
+const redis_service_1 = require("../redis/redis.service");
+const deepgram_service_1 = require("../deepgram/deepgram.service");
 let ProcessingService = class ProcessingService {
-    constructor(audioQueue, prisma, projectsService) {
+    constructor(audioQueue, prisma, projectsService, redisService, deepgramService) {
         this.audioQueue = audioQueue;
         this.prisma = prisma;
         this.projectsService = projectsService;
+        this.redisService = redisService;
+        this.deepgramService = deepgramService;
     }
-    async triggerProcessing(id, tokenUser = null) {
-        const project = await this.prisma.project.findUnique({
-            where: { id },
-            include: {
-                user: {
-                    include: {
-                        subscription: {
-                            include: { plan: true }
-                        }
-                    }
-                }
-            },
-        });
+    async triggerProcessing(id) {
+        const audioUrl = await this.projectsService.getTempAudioUrl(id);
+        if (!audioUrl) {
+            throw new common_1.BadRequestException("No audio has been uploaded for this project yet");
+        }
+        const project = await this.projectsService.updateProjectStatus(id, project_status_enum_1.ProjectStatus.PROCESSING);
         if (!project) {
             throw new common_1.BadRequestException('Project not found');
         }
-        if (!project.videoUrl) {
-            throw new common_1.BadRequestException('No video has been uploaded for this project yet');
-        }
-        const subscriptionTier = project.user?.subscription?.plan?.name || (tokenUser ? tokenUser.subscriptionTier : 'FREE');
-        if (!project.userId || subscriptionTier === 'FREE') {
-            let processCount = 0;
-            if (project.userId) {
-                processCount = await this.prisma.project.count({
-                    where: {
-                        userId: project.userId,
-                        status: { in: ['PROCESSING', 'COMPLETED'] },
-                    },
-                });
-            }
-            else if (project.sessionId) {
-                processCount = await this.prisma.project.count({
-                    where: {
-                        sessionId: project.sessionId,
-                        status: { in: ['PROCESSING', 'COMPLETED'] },
-                    },
-                });
-            }
-            if (processCount >= auth_config_1.AUTH_CONFIG.freeTierMaxProcessingLimit) {
-            }
-        }
-        await this.projectsService.updateProjectStatus(id, project_status_enum_1.ProjectStatus.PROCESSING);
-        const job = await this.audioQueue.add('transcribe-job', {
-            projectId: id,
-            videoUrl: project.videoUrl,
-        });
+        this.process(id, audioUrl);
         return {
             message: 'Processing has been triggered asynchronously',
-            jobId: job.id,
             status: 'PROCESSING',
         };
+    }
+    async process(projectId, audioUrl) {
+        try {
+            console.log(`[Starting audio transcription pipeline for project: ${projectId}`);
+            console.log(`[audioUrl: ${audioUrl}`);
+            const project = await this.projectsService.updateProjectStatus(projectId, project_status_enum_1.ProjectStatus.PROCESSING);
+            console.log(project);
+            console.log(`[Job ${projectId}] Sending URL directly to Deepgram: ${audioUrl}`);
+            const words = await this.deepgramService.transcribeUrl(audioUrl, project.language || 'en');
+            await this.saveSubtitlesToDb(projectId, words);
+            console.log('words', words);
+            await this.projectsService.updateProjectStatus(projectId, project_status_enum_1.ProjectStatus.COMPLETED);
+            console.log(`[Job ${projectId}] Pipeline finished successfully for Project: ${projectId}`);
+        }
+        catch (err) {
+            console.error(`[Job ${projectId}] Pipeline failed:`, err);
+            await this.projectsService.updateProjectStatus(projectId, project_status_enum_1.ProjectStatus.FAILED);
+            throw err;
+        }
+    }
+    async saveSubtitlesToDb(projectId, words) {
+        if (words.length === 0)
+            return;
+        const groupedBlocks = this.deepgramService.groupIntoBlocks(words);
+        const { randomUUID } = require('crypto');
+        const dbBlocks = groupedBlocks.map((b) => ({
+            id: randomUUID(),
+            language: 'en',
+            timestampStart: b.start,
+            timestampEnd: b.end,
+            text: b.words.map((w) => w.word).join(' '),
+            wordsJson: b.words,
+            speaker: b.words[0]?.speaker || 'A',
+        }));
+        await this.prisma.subtitle.create({
+            data: {
+                projectId,
+                subtitlesJson: dbBlocks,
+            },
+        });
     }
 };
 exports.ProcessingService = ProcessingService;
@@ -86,6 +92,8 @@ exports.ProcessingService = ProcessingService = __decorate([
     __param(2, (0, common_1.Inject)((0, common_1.forwardRef)(() => projects_service_1.ProjectsService))),
     __metadata("design:paramtypes", [bullmq_2.Queue,
         prisma_service_1.PrismaService,
-        projects_service_1.ProjectsService])
+        projects_service_1.ProjectsService,
+        redis_service_1.RedisService,
+        deepgram_service_1.DeepgramService])
 ], ProcessingService);
 //# sourceMappingURL=processing.service.js.map

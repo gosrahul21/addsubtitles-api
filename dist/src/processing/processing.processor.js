@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ProcessingProcessor = void 0;
 const bullmq_1 = require("@nestjs/bullmq");
+const fs = require("fs");
 const prisma_service_1 = require("../prisma/prisma.service");
 const common_1 = require("@nestjs/common");
 const redis_service_1 = require("../redis/redis.service");
@@ -25,33 +26,34 @@ let ProcessingProcessor = class ProcessingProcessor extends bullmq_1.WorkerHost 
         this.deepgramService = deepgramService;
     }
     async process(job) {
-        const { projectId, videoUrl } = job.data;
+        const { projectId, audioUrl } = job.data;
         try {
             console.log(`[Job ${job.id}] Starting audio transcription pipeline for project: ${projectId}`);
-            console.log(`[Job ${job.id}] videoUrl: ${videoUrl}`);
+            console.log(`[Job ${job.id}] audioUrl: ${audioUrl}`);
             const project = await this.prisma.project.update({
                 where: { id: projectId },
                 data: { status: 'PROCESSING' },
             });
             await this.redisService.del(cache_constants_1.CACHE_KEYS.PROJECT_DETAILS(projectId));
-            const tempUrlCacheKey = `project:${projectId}:tempUrl`;
-            const tempAudioUrl = await this.redisService.get(tempUrlCacheKey);
-            const transcriptionUrl = tempAudioUrl || videoUrl;
-            console.log(`[Job ${job.id}] Sending URL directly to Deepgram: ${transcriptionUrl}`);
-            const words = await this.deepgramService.transcribeUrl(transcriptionUrl, (0, language_config_1.resolveLanguageCode)(project.language || 'en'));
+            console.log(`[Job ${projectId}] Sending URL directly to Deepgram: ${audioUrl}`);
+            const words = await this.deepgramService.transcribeUrl(audioUrl, (0, language_config_1.resolveLanguageCode)(project.language || 'en'));
             await this.saveSubtitlesToDb(projectId, words);
-            if (tempAudioUrl) {
-                await this.redisService.del(tempUrlCacheKey);
-            }
+            console.log('words', words);
             await this.prisma.project.update({
                 where: { id: projectId },
                 data: { status: 'COMPLETED' },
             });
             await this.redisService.del(cache_constants_1.CACHE_KEYS.PROJECT_DETAILS(projectId));
-            console.log(`[Job ${job.id}] Pipeline finished successfully for Project: ${projectId}`);
+            console.log(`[Job ${projectId}] Pipeline finished successfully for Project: ${projectId}`);
         }
         catch (err) {
-            console.error(`[Job ${job.id}] Pipeline failed:`, err);
+            console.error(`[Job ${projectId}] Pipeline failed:`, err);
+            try {
+                fs.appendFileSync('pipeline-errors.log', `[${new Date().toISOString()}] [Job ${projectId}] Pipeline failed: ${err.message}\n${err.stack}\n\n`);
+            }
+            catch (logErr) {
+                console.error('Failed to write to error log:', logErr);
+            }
             await this.prisma.project.update({
                 where: { id: projectId },
                 data: { status: 'FAILED' },

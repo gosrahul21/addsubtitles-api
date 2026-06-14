@@ -95,11 +95,7 @@ let ProjectsController = class ProjectsController {
             throw new common_1.BadRequestException('videoUrl is required');
         }
         const result = await this.projectsService.saveUploadedVideo(id, videoUrl);
-        if (result) {
-            const tokenUser = this.getAuthenticatedUserOrNull(req);
-            await this.processingService.triggerProcessing(id, tokenUser);
-            return result;
-        }
+        return result;
     }
     async updateSettings(id, dto) {
         return this.projectsService.updateSettings(id, dto);

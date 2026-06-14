@@ -11,26 +11,26 @@ export declare class ProjectsController {
     private getUserIdOrNull;
     private getAuthenticatedUserOrNull;
     createProject(dto: CreateProjectDto, req: Request): Promise<{
-        sessionId: string | null;
         id: string;
-        createdAt: Date;
+        userId: string | null;
+        sessionId: string | null;
         status: import(".prisma/client").$Enums.ProjectStatus;
         language: string | null;
         videoUrl: string | null;
         settingsJson: import("@prisma/client/runtime/library").JsonValue;
-        userId: string | null;
+        createdAt: Date;
     }>;
     getUserProjects(req: Request & {
         user: any;
     }): Promise<{
-        sessionId: string | null;
         id: string;
-        createdAt: Date;
+        userId: string | null;
+        sessionId: string | null;
         status: import(".prisma/client").$Enums.ProjectStatus;
         language: string | null;
         videoUrl: string | null;
         settingsJson: import("@prisma/client/runtime/library").JsonValue;
-        userId: string | null;
+        createdAt: Date;
     }[]>;
     uploadAudio(id: string, audioUrl: string): Promise<{
         message: string;
@@ -42,24 +42,24 @@ export declare class ProjectsController {
         cloudName: string;
     };
     uploadVideo(id: string, req: Request, videoUrl?: string): Promise<{
-        sessionId: string | null;
         id: string;
-        createdAt: Date;
+        userId: string | null;
+        sessionId: string | null;
         status: import(".prisma/client").$Enums.ProjectStatus;
         language: string | null;
         videoUrl: string | null;
         settingsJson: import("@prisma/client/runtime/library").JsonValue;
-        userId: string | null;
+        createdAt: Date;
     }>;
     updateSettings(id: string, dto: UpdateSettingsDto): Promise<{
-        sessionId: string | null;
         id: string;
-        createdAt: Date;
+        userId: string | null;
+        sessionId: string | null;
         status: import(".prisma/client").$Enums.ProjectStatus;
         language: string | null;
         videoUrl: string | null;
         settingsJson: import("@prisma/client/runtime/library").JsonValue;
-        userId: string | null;
+        createdAt: Date;
     }>;
     getProjectDetails(id: string): Promise<any>;
 }

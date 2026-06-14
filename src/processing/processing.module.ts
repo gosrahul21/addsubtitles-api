@@ -1,6 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
-import { ProcessingController } from './processing.controller';
 import { ProcessingProcessor } from './processing.processor';
 import { ProcessingService } from './processing.service';
 import { AuthModule } from '../auth/auth.module';
@@ -17,7 +16,6 @@ import { ProjectsModule } from '../projects/projects.module';
       name: 'audio-processing',
     }),
   ],
-  controllers: [ProcessingController],
   providers: [ProcessingProcessor, ProcessingService],
   exports: [ProcessingService],
 })

@@ -9,7 +9,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ProcessingModule = void 0;
 const common_1 = require("@nestjs/common");
 const bullmq_1 = require("@nestjs/bullmq");
-const processing_controller_1 = require("./processing.controller");
 const processing_processor_1 = require("./processing.processor");
 const processing_service_1 = require("./processing.service");
 const auth_module_1 = require("../auth/auth.module");
@@ -28,7 +27,6 @@ exports.ProcessingModule = ProcessingModule = __decorate([
                 name: 'audio-processing',
             }),
         ],
-        controllers: [processing_controller_1.ProcessingController],
         providers: [processing_processor_1.ProcessingProcessor, processing_service_1.ProcessingService],
         exports: [processing_service_1.ProcessingService],
     })

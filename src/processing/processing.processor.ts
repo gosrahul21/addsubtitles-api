@@ -1,4 +1,5 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
+import * as fs from 'fs';
 import { Job } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { Injectable } from '@nestjs/common';
@@ -21,11 +22,11 @@ export class ProcessingProcessor extends WorkerHost {
 
   // Orchestrator method triggered by BullMQ
   async process(job: Job<any, any, string>): Promise<any> {
-    const { projectId, videoUrl } = job.data;
+    const { projectId, audioUrl } = job.data;
     
     try {
       console.log(`[Job ${job.id}] Starting audio transcription pipeline for project: ${projectId}`);
-      console.log(`[Job ${job.id}] videoUrl: ${videoUrl}`);
+      console.log(`[Job ${job.id}] audioUrl: ${audioUrl}`);
       
       const project = await this.prisma.project.update({
         where: { id: projectId },
@@ -34,21 +35,22 @@ export class ProcessingProcessor extends WorkerHost {
       await this.redisService.del(CACHE_KEYS.PROJECT_DETAILS(projectId));
 
       // Check for tempUrl in Redis
-      const tempUrlCacheKey = `project:${projectId}:tempUrl`;
-      const tempAudioUrl = await this.redisService.get(tempUrlCacheKey);
-      const transcriptionUrl = tempAudioUrl || videoUrl;
+      // const tempUrlCacheKey = `project:${projectId}:tempUrl`;
+      // const tempAudioUrl = await this.redisService.get(tempUrlCacheKey);
+      // const transcriptionUrl = tempAudioUrl || videoUrl;
 
       // Step 1: Transcribe directly from URL using Deepgram
-      console.log(`[Job ${job.id}] Sending URL directly to Deepgram: ${transcriptionUrl}`);
-      const words = await this.deepgramService.transcribeUrl(transcriptionUrl, resolveLanguageCode(project.language || 'en'));
+      console.log(`[Job ${projectId}] Sending URL directly to Deepgram: ${audioUrl}`);
+      const words = await this.deepgramService.transcribeUrl(audioUrl, resolveLanguageCode(project.language || 'en'));
 
       // Step 2: Save subtitles to Database
       await this.saveSubtitlesToDb(projectId, words);
+      console.log('words',words)
 
       // Clean up tempUrl
-      if (tempAudioUrl) {
-        await this.redisService.del(tempUrlCacheKey);
-      }
+      // if (audioUrl) {
+      //   await this.redisService.del(audioUrl);
+      // }
 
       // Step 3: Update database project status
       await this.prisma.project.update({
@@ -57,9 +59,14 @@ export class ProcessingProcessor extends WorkerHost {
       });
       await this.redisService.del(CACHE_KEYS.PROJECT_DETAILS(projectId));
 
-      console.log(`[Job ${job.id}] Pipeline finished successfully for Project: ${projectId}`);
+      console.log(`[Job ${projectId}] Pipeline finished successfully for Project: ${projectId}`);
     } catch (err) {
-      console.error(`[Job ${job.id}] Pipeline failed:`, err);
+      console.error(`[Job ${projectId}] Pipeline failed:`, err);
+      try {
+        fs.appendFileSync('pipeline-errors.log', `[${new Date().toISOString()}] [Job ${projectId}] Pipeline failed: ${err.message}\n${err.stack}\n\n`);
+      } catch (logErr) {
+        console.error('Failed to write to error log:', logErr);
+      }
       await this.prisma.project.update({
         where: { id: projectId },
         data: { status: 'FAILED' },
