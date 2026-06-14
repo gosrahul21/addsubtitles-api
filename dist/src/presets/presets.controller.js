@@ -27,15 +27,15 @@ let PresetsController = class PresetsController {
         if (!styleJson || typeof styleJson !== 'object') {
             throw new common_1.BadRequestException('Style configuration (styleJson) is required');
         }
-        const userId = req.user.id;
+        const userId = req.user.sub;
         return this.presetsService.createPreset(userId, name, styleJson);
     }
     async getPresets(req) {
-        const userId = req.user.id;
+        const userId = req.user.sub;
         return this.presetsService.getPresetsForUser(userId);
     }
     async deletePreset(req, id) {
-        const userId = req.user.id;
+        const userId = req.user.sub;
         return this.presetsService.deletePreset(userId, id);
     }
 };

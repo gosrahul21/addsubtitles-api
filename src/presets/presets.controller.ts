@@ -21,19 +21,19 @@ export class PresetsController {
       throw new BadRequestException('Style configuration (styleJson) is required');
     }
 
-    const userId = req.user.id;
+    const userId = req.user.sub;
     return this.presetsService.createPreset(userId, name, styleJson);
   }
 
   @Get()
   async getPresets(@Req() req: any) {
-    const userId = req.user.id;
+    const userId = req.user.sub;
     return this.presetsService.getPresetsForUser(userId);
   }
 
   @Delete(':id')
   async deletePreset(@Req() req: any, @Param('id') id: string) {
-    const userId = req.user.id;
+    const userId = req.user.sub;
     return this.presetsService.deletePreset(userId, id);
   }
 }
