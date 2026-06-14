@@ -19,6 +19,7 @@ const payments_module_1 = require("./payments/payments.module");
 const presets_module_1 = require("./presets/presets.module");
 const redis_module_1 = require("./redis/redis.module");
 const health_module_1 = require("./health/health.module");
+const ai_module_1 = require("./ai/ai.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -45,6 +46,7 @@ exports.AppModule = AppModule = __decorate([
             payments_module_1.PaymentsModule,
             presets_module_1.PresetsModule,
             health_module_1.HealthModule,
+            ai_module_1.AiModule,
         ],
     })
 ], AppModule);

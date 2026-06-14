@@ -11,6 +11,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { PresetsModule } from './presets/presets.module';
 import { RedisModule } from './redis/redis.module';
 import { HealthModule } from './health/health.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { HealthModule } from './health/health.module';
     PaymentsModule,
     PresetsModule,
     HealthModule,
+    AiModule,
   ],
 })
 export class AppModule { }
