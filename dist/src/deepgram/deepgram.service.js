@@ -34,7 +34,7 @@ let DeepgramService = DeepgramService_1 = class DeepgramService {
         const audioBlob = new Blob([standaloneArrayBuffer], { type: 'audio/wav' });
         const response = await client.listen.v1.media.transcribeFile(audioBlob, {
             model: this.DG_MODEL,
-            language: mappedLanguage,
+            ...(mappedLanguage === 'multi' ? { detect_language: true } : { language: mappedLanguage }),
             smart_format: true,
             punctuate: true,
             utterances: true,
@@ -60,7 +60,7 @@ let DeepgramService = DeepgramService_1 = class DeepgramService {
         this.logger.log(`Calling Deepgram API with URL (model: ${this.DG_MODEL}, lang: ${mappedLanguage})...`);
         const response = await client.listen.v1.media.transcribeUrl({ url }, {
             model: this.DG_MODEL,
-            language: mappedLanguage,
+            ...(mappedLanguage === 'multi' ? { detect_language: true } : { language: mappedLanguage }),
             smart_format: true,
             punctuate: true,
             utterances: true,
