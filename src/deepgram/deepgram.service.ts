@@ -77,7 +77,7 @@ export class DeepgramService {
       audioBlob as any,
       {
         model: this.DG_MODEL,
-        language: mappedLanguage,
+        ...(mappedLanguage === 'multi' ? { detect_language: true } : { language: mappedLanguage }),
         smart_format: true,
         punctuate: true,
         utterances: true,
@@ -115,7 +115,7 @@ export class DeepgramService {
       { url },
       {
         model: this.DG_MODEL,
-        language: mappedLanguage,
+        ...(mappedLanguage === 'multi' ? { detect_language: true } : { language: mappedLanguage }),
         smart_format: true,
         punctuate: true,
         utterances: true,
