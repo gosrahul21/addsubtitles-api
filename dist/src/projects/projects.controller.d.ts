@@ -11,26 +11,26 @@ export declare class ProjectsController {
     private getUserIdOrNull;
     private getAuthenticatedUserOrNull;
     createProject(dto: CreateProjectDto, req: Request): Promise<{
-        id: string;
-        userId: string | null;
         sessionId: string | null;
+        id: string;
+        createdAt: Date;
         status: import(".prisma/client").$Enums.ProjectStatus;
         language: string | null;
         videoUrl: string | null;
         settingsJson: import("@prisma/client/runtime/library").JsonValue;
-        createdAt: Date;
+        userId: string | null;
     }>;
     getUserProjects(req: Request & {
         user: any;
     }): Promise<{
-        id: string;
-        userId: string | null;
         sessionId: string | null;
+        id: string;
+        createdAt: Date;
         status: import(".prisma/client").$Enums.ProjectStatus;
         language: string | null;
         videoUrl: string | null;
         settingsJson: import("@prisma/client/runtime/library").JsonValue;
-        createdAt: Date;
+        userId: string | null;
     }[]>;
     uploadAudio(id: string, audioUrl: string): Promise<{
         message: string;
@@ -42,24 +42,24 @@ export declare class ProjectsController {
         cloudName: string;
     };
     uploadVideo(id: string, req: Request, videoUrl?: string): Promise<{
-        id: string;
-        userId: string | null;
         sessionId: string | null;
+        id: string;
+        createdAt: Date;
         status: import(".prisma/client").$Enums.ProjectStatus;
         language: string | null;
         videoUrl: string | null;
         settingsJson: import("@prisma/client/runtime/library").JsonValue;
-        createdAt: Date;
+        userId: string | null;
     }>;
     updateSettings(id: string, dto: UpdateSettingsDto): Promise<{
-        id: string;
-        userId: string | null;
         sessionId: string | null;
+        id: string;
+        createdAt: Date;
         status: import(".prisma/client").$Enums.ProjectStatus;
         language: string | null;
         videoUrl: string | null;
         settingsJson: import("@prisma/client/runtime/library").JsonValue;
-        createdAt: Date;
+        userId: string | null;
     }>;
     getProjectDetails(id: string): Promise<any>;
 }
