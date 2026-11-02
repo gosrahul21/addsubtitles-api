@@ -4,8 +4,8 @@ export declare class PresetsController {
     constructor(presetsService: PresetsService);
     createPreset(req: any, name: string, styleJson: any): Promise<{
         id: string;
-        createdAt: Date;
         name: string;
+        createdAt: Date;
         userId: string;
         styleJson: import("@prisma/client/runtime/library").JsonValue;
         updatedAt: Date;

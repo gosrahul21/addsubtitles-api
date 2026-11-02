@@ -125,3 +125,14 @@ model Export {
 
   @@map("exports")
 }
+
+model PageView {
+  id         String   @id @default(uuid())
+  entityType String   @map("entity_type") // "tool" | "blog"
+  slug       String   @unique
+  views      Int      @default(0)
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("page_views")
+}
+

@@ -10,4 +10,7 @@ export declare class AiController {
     generateEmojis(req: any, segments: any[]): Promise<{
         emojis: any[];
     }>;
+    translateSubtitles(req: any, segments: any[], targetLanguage: string): Promise<{
+        translatedSegments: any[];
+    }>;
 }

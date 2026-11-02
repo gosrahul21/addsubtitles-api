@@ -6,8 +6,8 @@ export declare class PresetsService {
     constructor(prisma: PrismaService, redisService: RedisService);
     createPreset(userId: string, name: string, styleJson: any): Promise<{
         id: string;
-        createdAt: Date;
         name: string;
+        createdAt: Date;
         userId: string;
         styleJson: import("@prisma/client/runtime/library").JsonValue;
         updatedAt: Date;

@@ -13,12 +13,13 @@ const redis_module_1 = require("../redis/redis.module");
 const ai_service_1 = require("./ai.service");
 const ai_controller_1 = require("./ai.controller");
 const auth_module_1 = require("../auth/auth.module");
+const groq_module_1 = require("../groq/groq.module");
 let AiModule = class AiModule {
 };
 exports.AiModule = AiModule;
 exports.AiModule = AiModule = __decorate([
     (0, common_1.Module)({
-        imports: [payments_module_1.PaymentsModule, redis_module_1.RedisModule, auth_module_1.AuthModule],
+        imports: [payments_module_1.PaymentsModule, redis_module_1.RedisModule, auth_module_1.AuthModule, groq_module_1.GroqModule],
         controllers: [ai_controller_1.AiController],
         providers: [ai_service_1.AiService],
         exports: [ai_service_1.AiService],

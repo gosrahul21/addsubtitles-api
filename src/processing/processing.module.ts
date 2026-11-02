@@ -4,12 +4,16 @@ import { ProcessingProcessor } from './processing.processor';
 import { ProcessingService } from './processing.service';
 import { AuthModule } from '../auth/auth.module';
 import { DeepgramModule } from '../deepgram/deepgram.module';
+import { GroqModule } from '../groq/groq.module';
+import { PaymentsModule } from '../payments/payments.module';
 import { ProjectsModule } from '../projects/projects.module';
 
 @Module({
   imports: [
     AuthModule,
     DeepgramModule,
+    GroqModule,
+    PaymentsModule,
     forwardRef(() => ProjectsModule),
     // Register the audio queue
     BullModule.registerQueue({

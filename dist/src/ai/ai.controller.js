@@ -43,6 +43,16 @@ let AiController = class AiController {
         const emojis = await this.aiService.generateEmojis(segments);
         return { emojis };
     }
+    async translateSubtitles(req, segments, targetLanguage) {
+        if (!segments || !Array.isArray(segments) || segments.length === 0) {
+            return { translatedSegments: [] };
+        }
+        if (!targetLanguage) {
+            throw new common_1.BadRequestException('targetLanguage is required');
+        }
+        const translatedSegments = await this.aiService.translateSubtitles(segments, targetLanguage);
+        return { translatedSegments };
+    }
 };
 exports.AiController = AiController;
 __decorate([
@@ -61,6 +71,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, Array]),
     __metadata("design:returntype", Promise)
 ], AiController.prototype, "generateEmojis", null);
+__decorate([
+    (0, common_1.Post)('translate-subtitles'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)('segments')),
+    __param(2, (0, common_1.Body)('targetLanguage')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Array, String]),
+    __metadata("design:returntype", Promise)
+], AiController.prototype, "translateSubtitles", null);
 exports.AiController = AiController = __decorate([
     (0, common_1.Controller)('ai'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

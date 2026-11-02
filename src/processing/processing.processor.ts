@@ -1,108 +1,21 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import * as fs from 'fs';
 import { Job } from 'bullmq';
-import { PrismaService } from '../prisma/prisma.service';
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { RedisService } from '../redis/redis.service';
-import { CACHE_KEYS } from '../common/constants/cache.constants';
-import { DeepgramService, WordEntry } from '../deepgram/deepgram.service';
-import { resolveLanguageCode } from 'src/common/constants/language.config';
+import { Injectable, Logger } from '@nestjs/common';
+import { ProcessingService } from './processing.service';
 
 @Injectable()
 @Processor('audio-processing')
 export class ProcessingProcessor extends WorkerHost {
-  constructor(
-    private prisma: PrismaService,
-    private redisService: RedisService,
-    private deepgramService: DeepgramService,
-  ) {
+  private readonly logger = new Logger(ProcessingProcessor.name);
+
+  constructor(private processingService: ProcessingService) {
     super();
   }
 
   // Orchestrator method triggered by BullMQ
   async process(job: Job<any, any, string>): Promise<any> {
     const { projectId, audioUrl } = job.data;
-    
-    try {
-      console.log(`[Job ${job.id}] Starting audio transcription pipeline for project: ${projectId}`);
-      console.log(`[Job ${job.id}] audioUrl: ${audioUrl}`);
-      
-      const project = await this.prisma.project.update({
-        where: { id: projectId },
-        data: { status: 'PROCESSING' },
-      });
-      await this.redisService.del(CACHE_KEYS.PROJECT_DETAILS(projectId));
-
-      // Check for tempUrl in Redis
-      // const tempUrlCacheKey = `project:${projectId}:tempUrl`;
-      // const tempAudioUrl = await this.redisService.get(tempUrlCacheKey);
-      // const transcriptionUrl = tempAudioUrl || videoUrl;
-
-      // Step 1: Transcribe directly from URL using Deepgram
-      console.log(`[Job ${projectId}] Sending URL directly to Deepgram: ${audioUrl}`);
-      const words = await this.deepgramService.transcribeUrl(audioUrl, resolveLanguageCode(project.language || 'en'));
-
-      // Step 2: Save subtitles to Database
-      await this.saveSubtitlesToDb(projectId, words);
-      console.log('words',words)
-
-      // Clean up tempUrl
-      // if (audioUrl) {
-      //   await this.redisService.del(audioUrl);
-      // }
-
-      // Step 3: Update database project status
-      await this.prisma.project.update({
-        where: { id: projectId },
-        data: { status: 'COMPLETED' },
-      });
-      await this.redisService.del(CACHE_KEYS.PROJECT_DETAILS(projectId));
-
-      console.log(`[Job ${projectId}] Pipeline finished successfully for Project: ${projectId}`);
-    } catch (err) {
-      console.error(`[Job ${projectId}] Pipeline failed:`, err);
-      try {
-        fs.appendFileSync('pipeline-errors.log', `[${new Date().toISOString()}] [Job ${projectId}] Pipeline failed: ${err.message}\n${err.stack}\n\n`);
-      } catch (logErr) {
-        console.error('Failed to write to error log:', logErr);
-      }
-      await this.prisma.project.update({
-        where: { id: projectId },
-        data: { status: 'FAILED' },
-      });
-      throw err;
-    }
-  }
-
-
-  // 3. Save word-level timings (wordsJson) into Subtitle blocks in PostgreSQL.
-  //    We preserve exact Deepgram timestamps on every word — no redistribution.
-  //    The frontend uses wordsJson directly for karaoke highlighting and converts
-  //    to SRT/VTT/ASS on download.
-  private async saveSubtitlesToDb(projectId: string, words: WordEntry[]) {
-    if (words.length === 0) return;
-
-    // Group into natural subtitle blocks (respects pauses, word count, duration caps)
-    const groupedBlocks = this.deepgramService.groupIntoBlocks(words);
-
-    const { randomUUID } = require('crypto');
-    const dbBlocks = groupedBlocks.map((b) => ({
-      id: randomUUID(),
-      language: 'en',
-      timestampStart: b.start,
-      timestampEnd: b.end,
-      text: b.words.map((w) => w.word).join(' '),
-      wordsJson: b.words,
-      speaker: b.words[0]?.speaker || 'A',
-    }));
-
-    // Insert single Subtitle document
-    await this.prisma.subtitle.create({
-      data: {
-        projectId,
-        subtitlesJson: dbBlocks as any,
-      },
-    });
+    this.logger.log(`[Job ${job.id}] Executing audio processing queue job for project: ${projectId}`);
+    return this.processingService.process(projectId, audioUrl);
   }
 }

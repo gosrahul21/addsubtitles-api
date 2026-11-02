@@ -74,6 +74,28 @@ let RedisService = RedisService_1 = class RedisService {
             this.logger.warn(`Failed to DEL in Redis [${key}]: ${err.message}`);
         }
     }
+    async incr(key) {
+        try {
+            if (this.redisClient.status !== 'ready')
+                return 0;
+            return await this.redisClient.incr(key);
+        }
+        catch (err) {
+            this.logger.warn(`Failed to INCR in Redis [${key}]: ${err.message}`);
+            return 0;
+        }
+    }
+    async mget(keys) {
+        try {
+            if (this.redisClient.status !== 'ready' || keys.length === 0)
+                return [];
+            return await this.redisClient.mget(...keys);
+        }
+        catch (err) {
+            this.logger.warn(`Failed to MGET from Redis: ${err.message}`);
+            return [];
+        }
+    }
     onModuleDestroy() {
         this.redisClient.quit();
     }

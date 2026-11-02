@@ -63,6 +63,26 @@ export class RedisService implements OnModuleDestroy {
     }
   }
 
+  async incr(key: string): Promise<number> {
+    try {
+      if (this.redisClient.status !== 'ready') return 0;
+      return await this.redisClient.incr(key);
+    } catch (err) {
+      this.logger.warn(`Failed to INCR in Redis [${key}]: ${err.message}`);
+      return 0;
+    }
+  }
+
+  async mget(keys: string[]): Promise<(string | null)[]> {
+    try {
+      if (this.redisClient.status !== 'ready' || keys.length === 0) return [];
+      return await this.redisClient.mget(...keys);
+    } catch (err) {
+      this.logger.warn(`Failed to MGET from Redis: ${err.message}`);
+      return [];
+    }
+  }
+
   onModuleDestroy() {
     this.redisClient.quit();
   }

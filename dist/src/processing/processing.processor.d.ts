@@ -1,13 +1,9 @@
 import { WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
-import { PrismaService } from '../prisma/prisma.service';
-import { RedisService } from '../redis/redis.service';
-import { DeepgramService } from '../deepgram/deepgram.service';
+import { ProcessingService } from './processing.service';
 export declare class ProcessingProcessor extends WorkerHost {
-    private prisma;
-    private redisService;
-    private deepgramService;
-    constructor(prisma: PrismaService, redisService: RedisService, deepgramService: DeepgramService);
+    private processingService;
+    private readonly logger;
+    constructor(processingService: ProcessingService);
     process(job: Job<any, any, string>): Promise<any>;
-    private saveSubtitlesToDb;
 }

@@ -12,6 +12,8 @@ import { PresetsModule } from './presets/presets.module';
 import { RedisModule } from './redis/redis.module';
 import { HealthModule } from './health/health.module';
 import { AiModule } from './ai/ai.module';
+import { GroqModule } from './groq/groq.module';
+import { ViewsModule } from './views/views.module';
 
 @Module({
   imports: [
@@ -44,6 +46,8 @@ import { AiModule } from './ai/ai.module';
     PresetsModule,
     HealthModule,
     AiModule,
+    GroqModule,
+    ViewsModule,
   ],
 })
 export class AppModule { }

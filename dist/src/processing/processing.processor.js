@@ -8,87 +8,28 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var ProcessingProcessor_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ProcessingProcessor = void 0;
 const bullmq_1 = require("@nestjs/bullmq");
-const fs = require("fs");
-const prisma_service_1 = require("../prisma/prisma.service");
 const common_1 = require("@nestjs/common");
-const redis_service_1 = require("../redis/redis.service");
-const cache_constants_1 = require("../common/constants/cache.constants");
-const deepgram_service_1 = require("../deepgram/deepgram.service");
-const language_config_1 = require("../common/constants/language.config");
-let ProcessingProcessor = class ProcessingProcessor extends bullmq_1.WorkerHost {
-    constructor(prisma, redisService, deepgramService) {
+const processing_service_1 = require("./processing.service");
+let ProcessingProcessor = ProcessingProcessor_1 = class ProcessingProcessor extends bullmq_1.WorkerHost {
+    constructor(processingService) {
         super();
-        this.prisma = prisma;
-        this.redisService = redisService;
-        this.deepgramService = deepgramService;
+        this.processingService = processingService;
+        this.logger = new common_1.Logger(ProcessingProcessor_1.name);
     }
     async process(job) {
         const { projectId, audioUrl } = job.data;
-        try {
-            console.log(`[Job ${job.id}] Starting audio transcription pipeline for project: ${projectId}`);
-            console.log(`[Job ${job.id}] audioUrl: ${audioUrl}`);
-            const project = await this.prisma.project.update({
-                where: { id: projectId },
-                data: { status: 'PROCESSING' },
-            });
-            await this.redisService.del(cache_constants_1.CACHE_KEYS.PROJECT_DETAILS(projectId));
-            console.log(`[Job ${projectId}] Sending URL directly to Deepgram: ${audioUrl}`);
-            const words = await this.deepgramService.transcribeUrl(audioUrl, (0, language_config_1.resolveLanguageCode)(project.language || 'en'));
-            await this.saveSubtitlesToDb(projectId, words);
-            console.log('words', words);
-            await this.prisma.project.update({
-                where: { id: projectId },
-                data: { status: 'COMPLETED' },
-            });
-            await this.redisService.del(cache_constants_1.CACHE_KEYS.PROJECT_DETAILS(projectId));
-            console.log(`[Job ${projectId}] Pipeline finished successfully for Project: ${projectId}`);
-        }
-        catch (err) {
-            console.error(`[Job ${projectId}] Pipeline failed:`, err);
-            try {
-                fs.appendFileSync('pipeline-errors.log', `[${new Date().toISOString()}] [Job ${projectId}] Pipeline failed: ${err.message}\n${err.stack}\n\n`);
-            }
-            catch (logErr) {
-                console.error('Failed to write to error log:', logErr);
-            }
-            await this.prisma.project.update({
-                where: { id: projectId },
-                data: { status: 'FAILED' },
-            });
-            throw err;
-        }
-    }
-    async saveSubtitlesToDb(projectId, words) {
-        if (words.length === 0)
-            return;
-        const groupedBlocks = this.deepgramService.groupIntoBlocks(words);
-        const { randomUUID } = require('crypto');
-        const dbBlocks = groupedBlocks.map((b) => ({
-            id: randomUUID(),
-            language: 'en',
-            timestampStart: b.start,
-            timestampEnd: b.end,
-            text: b.words.map((w) => w.word).join(' '),
-            wordsJson: b.words,
-            speaker: b.words[0]?.speaker || 'A',
-        }));
-        await this.prisma.subtitle.create({
-            data: {
-                projectId,
-                subtitlesJson: dbBlocks,
-            },
-        });
+        this.logger.log(`[Job ${job.id}] Executing audio processing queue job for project: ${projectId}`);
+        return this.processingService.process(projectId, audioUrl);
     }
 };
 exports.ProcessingProcessor = ProcessingProcessor;
-exports.ProcessingProcessor = ProcessingProcessor = __decorate([
+exports.ProcessingProcessor = ProcessingProcessor = ProcessingProcessor_1 = __decorate([
     (0, common_1.Injectable)(),
     (0, bullmq_1.Processor)('audio-processing'),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        redis_service_1.RedisService,
-        deepgram_service_1.DeepgramService])
+    __metadata("design:paramtypes", [processing_service_1.ProcessingService])
 ], ProcessingProcessor);
 //# sourceMappingURL=processing.processor.js.map

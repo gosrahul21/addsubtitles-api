@@ -20,6 +20,8 @@ const presets_module_1 = require("./presets/presets.module");
 const redis_module_1 = require("./redis/redis.module");
 const health_module_1 = require("./health/health.module");
 const ai_module_1 = require("./ai/ai.module");
+const groq_module_1 = require("./groq/groq.module");
+const views_module_1 = require("./views/views.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -47,6 +49,8 @@ exports.AppModule = AppModule = __decorate([
             presets_module_1.PresetsModule,
             health_module_1.HealthModule,
             ai_module_1.AiModule,
+            groq_module_1.GroqModule,
+            views_module_1.ViewsModule,
         ],
     })
 ], AppModule);

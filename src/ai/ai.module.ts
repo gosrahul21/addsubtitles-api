@@ -4,11 +4,12 @@ import { RedisModule } from 'src/redis/redis.module';
 import { AiService } from './ai.service';
 import { AiController } from './ai.controller';
 import { AuthModule } from 'src/auth/auth.module';
+import { GroqModule } from 'src/groq/groq.module';
 
 @Module({
-  imports: [PaymentsModule, RedisModule, AuthModule],
+  imports: [PaymentsModule, RedisModule, AuthModule, GroqModule],
   controllers: [AiController],
   providers: [AiService],
   exports: [AiService],
 })
-export class AiModule { }
+export class AiModule {}
