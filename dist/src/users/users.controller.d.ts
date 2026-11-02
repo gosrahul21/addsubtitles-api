@@ -12,8 +12,8 @@ export declare class UsersController {
     } | {
         message: string;
         user: {
-            id: string;
             email: string;
+            id: string;
             createdAt: Date;
         };
     }>;

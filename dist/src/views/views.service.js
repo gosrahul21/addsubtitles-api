@@ -23,6 +23,9 @@ let ViewsService = ViewsService_1 = class ViewsService {
     getRedisKey(entityType, slug) {
         return `page_views:${entityType.toLowerCase()}:${slug.toLowerCase()}`;
     }
+    hasPageViewDelegate() {
+        return !!(this.prisma && this.prisma.pageView);
+    }
     async incrementView(entityType, slug) {
         const normType = entityType.toLowerCase().trim();
         const normSlug = slug.toLowerCase().trim();
@@ -31,39 +34,61 @@ let ViewsService = ViewsService_1 = class ViewsService {
             const existingRedisVal = await this.redisService.get(redisKey);
             let currentCount;
             if (existingRedisVal === null) {
-                const dbRecord = await this.prisma.pageView.findUnique({
-                    where: { slug: normSlug },
-                });
-                const initialCount = dbRecord ? dbRecord.views : 0;
+                let initialCount = 0;
+                if (this.hasPageViewDelegate()) {
+                    try {
+                        const dbRecord = await this.prisma.pageView.findUnique({
+                            where: { slug: normSlug },
+                        });
+                        if (dbRecord)
+                            initialCount = dbRecord.views;
+                    }
+                    catch (dbErr) {
+                        this.logger.warn(`Cold-start DB check failed for ${normSlug}: ${dbErr.message}`);
+                    }
+                }
                 currentCount = initialCount + 1;
                 await this.redisService.set(redisKey, currentCount.toString());
             }
             else {
                 currentCount = await this.redisService.incr(redisKey);
             }
-            this.prisma.pageView
-                .upsert({
-                where: { slug: normSlug },
-                update: { views: currentCount },
-                create: {
-                    entityType: normType,
-                    slug: normSlug,
-                    views: currentCount,
-                },
-            })
-                .catch((dbErr) => {
-                this.logger.error(`Failed to sync view count to DB for ${normSlug}: ${dbErr.message}`);
-            });
+            if (this.hasPageViewDelegate()) {
+                this.prisma.pageView
+                    .upsert({
+                    where: { slug: normSlug },
+                    update: { views: currentCount },
+                    create: {
+                        entityType: normType,
+                        slug: normSlug,
+                        views: currentCount,
+                    },
+                })
+                    .catch((dbErr) => {
+                    this.logger.error(`Failed to sync view count to DB for ${normSlug}: ${dbErr.message}`);
+                });
+            }
+            else {
+                this.logger.warn(`Prisma pageView model not generated yet in current client. View counted in Redis: ${currentCount}`);
+            }
             return currentCount;
         }
         catch (err) {
             this.logger.error(`Error in incrementView for ${normSlug}: ${err.message}`);
-            const record = await this.prisma.pageView.upsert({
-                where: { slug: normSlug },
-                update: { views: { increment: 1 } },
-                create: { entityType: normType, slug: normSlug, views: 1 },
-            });
-            return record.views;
+            if (this.hasPageViewDelegate()) {
+                try {
+                    const record = await this.prisma.pageView.upsert({
+                        where: { slug: normSlug },
+                        update: { views: { increment: 1 } },
+                        create: { entityType: normType, slug: normSlug, views: 1 },
+                    });
+                    return record.views;
+                }
+                catch (dbErr) {
+                    this.logger.error(`DB fallback upsert also failed: ${dbErr.message}`);
+                }
+            }
+            return 1;
         }
     }
     async getViewCount(entityType, slug) {
@@ -74,24 +99,41 @@ let ViewsService = ViewsService_1 = class ViewsService {
         if (cached !== null) {
             return parseInt(cached, 10) || 0;
         }
-        const record = await this.prisma.pageView.findUnique({
-            where: { slug: normSlug },
-        });
-        const count = record ? record.views : 0;
-        await this.redisService.set(redisKey, count.toString());
-        return count;
+        if (this.hasPageViewDelegate()) {
+            try {
+                const record = await this.prisma.pageView.findUnique({
+                    where: { slug: normSlug },
+                });
+                const count = record ? record.views : 0;
+                await this.redisService.set(redisKey, count.toString());
+                return count;
+            }
+            catch (dbErr) {
+                this.logger.warn(`Failed to read view count from DB: ${dbErr.message}`);
+            }
+        }
+        return 0;
     }
     async getAllViews(entityType) {
-        const whereClause = entityType ? { entityType: entityType.toLowerCase().trim() } : {};
-        const records = await this.prisma.pageView.findMany({
-            where: whereClause,
-            select: { slug: true, views: true },
-        });
-        const result = {};
-        for (const r of records) {
-            result[r.slug] = r.views;
+        if (!this.hasPageViewDelegate()) {
+            return {};
         }
-        return result;
+        try {
+            const whereClause = entityType ? { entityType: entityType.toLowerCase().trim() } : {};
+            const records = await this.prisma.pageView.findMany({
+                where: whereClause,
+                select: { slug: true, views: true },
+            });
+            const result = {};
+            for (const r of records) {
+                result[r.slug] = r.views;
+            }
+            return result;
+        }
+        catch (err) {
+            this.logger.error(`Failed to getAllViews: ${err.message}`);
+            return {};
+        }
     }
 };
 exports.ViewsService = ViewsService;

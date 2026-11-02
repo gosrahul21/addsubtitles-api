@@ -11,11 +11,11 @@ export declare class ProjectsController {
     private getUserIdOrNull;
     private getAuthenticatedUserOrNull;
     createProject(dto: CreateProjectDto, req: Request): Promise<{
-        id: string;
-        language: string | null;
         sessionId: string | null;
+        id: string;
         createdAt: Date;
         status: import(".prisma/client").$Enums.ProjectStatus;
+        language: string | null;
         videoUrl: string | null;
         settingsJson: import("@prisma/client/runtime/library").JsonValue;
         userId: string | null;
@@ -23,11 +23,11 @@ export declare class ProjectsController {
     getUserProjects(req: Request & {
         user: any;
     }): Promise<{
-        id: string;
-        language: string | null;
         sessionId: string | null;
+        id: string;
         createdAt: Date;
         status: import(".prisma/client").$Enums.ProjectStatus;
+        language: string | null;
         videoUrl: string | null;
         settingsJson: import("@prisma/client/runtime/library").JsonValue;
         userId: string | null;
@@ -42,21 +42,21 @@ export declare class ProjectsController {
         cloudName: string;
     };
     uploadVideo(id: string, req: Request, videoUrl?: string): Promise<{
-        id: string;
-        language: string | null;
         sessionId: string | null;
+        id: string;
         createdAt: Date;
         status: import(".prisma/client").$Enums.ProjectStatus;
+        language: string | null;
         videoUrl: string | null;
         settingsJson: import("@prisma/client/runtime/library").JsonValue;
         userId: string | null;
     }>;
     updateSettings(id: string, dto: UpdateSettingsDto): Promise<{
-        id: string;
-        language: string | null;
         sessionId: string | null;
+        id: string;
         createdAt: Date;
         status: import(".prisma/client").$Enums.ProjectStatus;
+        language: string | null;
         videoUrl: string | null;
         settingsJson: import("@prisma/client/runtime/library").JsonValue;
         userId: string | null;

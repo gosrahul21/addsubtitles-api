@@ -6,6 +6,7 @@ export declare class ViewsService {
     private readonly logger;
     constructor(prisma: PrismaService, redisService: RedisService);
     private getRedisKey;
+    private hasPageViewDelegate;
     incrementView(entityType: string, slug: string): Promise<number>;
     getViewCount(entityType: string, slug: string): Promise<number>;
     getAllViews(entityType?: string): Promise<Record<string, number>>;
